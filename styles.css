@@ -1,0 +1,232 @@
+/* Sunset Weather — no build step, no framework. */
+
+:root {
+  color-scheme: light;
+  --bg: #f7f6f3;
+  --panel: #fcfcfb;
+  --line: #e2ded6;
+  --ink: #1c1b19;
+  --muted: #6f6a62;
+  --accent: #2a78d6;
+  --cooler: #2a78d6;
+  --warmer: #eb6834;
+  --warn: #a8702f;
+
+  /* Sun ramp: how much sun reaches you, not how much cloud is overhead. */
+  --sky-full: #86b6ef;
+  --sky-none: #8d8a84;
+
+  /* Status palette. Fixed in both themes so a colour never changes meaning. */
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --on-serious: #1c1b19;
+  --on-critical: #ffffff;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 4px 14px rgba(0, 0, 0, .04);
+  --radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #141513;
+    --panel: #1a1a19;
+    --line: #2e3236;
+    --ink: #ffffff;
+    --muted: #c3c2b7;
+    --accent: #3987e5;
+    --cooler: #3987e5;
+    --warmer: #d95926;
+    --warn: #d9a05e;
+    --sky-full: #2a78d6;
+    --sky-none: #6e6b66;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 20px 16px 48px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1440px; margin: 0 auto; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* --------------------------------------------------------------- header -- */
+
+header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+h1 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+.stamp { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+button {
+  font: inherit; font-size: 12.5px; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 7px; padding: 5px 12px; cursor: pointer;
+  min-height: 32px;
+}
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: .55; cursor: default; }
+button.spinning { color: var(--muted); }
+
+/* --------------------------------------------------------------- legend -- */
+
+.legend {
+  display: flex; gap: 20px; flex-wrap: wrap; align-items: center;
+  margin-bottom: 16px; font-size: 11.5px; color: var(--muted);
+}
+.legend .grp { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.swatches { display: flex; gap: 3px; }
+.sw {
+  width: 15px; height: 15px; border-radius: 3px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--sky-full) calc(var(--sun, 0) * 100%), transparent);
+}
+.sw-night { background: color-mix(in srgb, var(--sky-none) 13%, transparent); }
+
+/* Wind is a plain number. It feeds the walkability verdict already; a second
+   colour scale of its own only competed with the sun tint. */
+.wind {
+  font-variant-numeric: tabular-nums; font-size: 11px; color: var(--muted);
+  white-space: nowrap;
+}
+.wind-lg { font-size: 13px; color: var(--ink); }
+
+.key-dot {
+  width: 13px; height: 13px; border-radius: 3px; display: inline-block;
+  border: 1px solid var(--line);
+}
+.key-good { background: color-mix(in srgb, var(--good) 55%, transparent); }
+.key-marginal { background: color-mix(in srgb, var(--warning) 50%, transparent); }
+.key-no { background: color-mix(in srgb, var(--critical) 28%, transparent); }
+.key-unknown { background: color-mix(in srgb, var(--muted) 22%, transparent); }
+
+/* ---------------------------------------------------------------- cards -- */
+
+.cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px; margin-bottom: 26px;
+}
+@media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
+
+.card {
+  background: color-mix(in srgb, var(--sky-full) calc(var(--sun, 0) * 100%), var(--panel));
+  border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 15px 16px 10px; min-width: 0;
+  display: flex; flex-direction: column;
+}
+.card.night { background: color-mix(in srgb, var(--sky-none) 9%, var(--panel)); }
+.card.sun-unknown {
+  background: repeating-linear-gradient(135deg,
+    color-mix(in srgb, var(--muted) 7%, var(--panel)) 0 6px,
+    var(--panel) 6px 12px);
+}
+.card-head h3 { font-size: 13px; font-weight: 650; letter-spacing: .02em; margin: 0; text-transform: uppercase; }
+.sub { font-size: 11.5px; color: var(--muted); margin: 2px 0 0; }
+
+.card-top { display: flex; align-items: center; gap: 11px; margin: 14px 0 2px; }
+.temp {
+  font-size: 42px; font-weight: 350; line-height: .9; letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+}
+.temp sup { font-size: .5em; top: -.55em; }
+.delta { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.delta.cooler { color: var(--cooler); }
+.delta.warmer { color: var(--warmer); }
+.card-top .wind { margin-left: auto; align-self: flex-end; padding-bottom: 3px; }
+
+.cond { display: flex; align-items: center; gap: 7px; font-size: 13px; margin: 10px 0 0; min-height: 20px; }
+.icon { display: inline-flex; color: var(--muted); }
+.icon svg { width: 17px; height: 17px; display: block; }
+
+.facts { font-size: 12px; color: var(--muted); margin: 6px 0 0; font-variant-numeric: tabular-nums; line-height: 1.5; }
+
+.verdict { margin: 12px 0 0; font-size: 12.5px; display: flex; gap: 7px; flex-wrap: wrap; align-items: baseline; }
+.verdict-text { font-weight: 600; }
+.verdict-note { color: var(--muted); font-weight: 400; }
+
+.empty { min-height: 120px; display: flex; flex-direction: column; justify-content: center; }
+.empty .dash { font-size: 34px; color: var(--muted); line-height: 1; }
+.empty p { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; }
+
+.card-foot {
+  margin-top: auto; padding-top: 12px; display: flex; justify-content: space-between;
+  align-items: baseline; gap: 8px; font-size: 11.5px; color: var(--muted);
+}
+.card-foot a { text-decoration: none; border-bottom: 1px solid var(--line); white-space: nowrap; color: var(--muted); }
+.card-foot a:hover { color: var(--accent); border-color: var(--accent); }
+.card-status.warn { color: var(--warn); }
+
+/* --------------------------------------------------------------- matrix -- */
+
+.section-head { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+.pager { display: flex; align-items: center; gap: 9px; }
+.pager button { padding: 3px 9px; min-height: 26px; font-size: 11.5px; }
+.range { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 15ch; text-align: center; }
+h2 { font-size: 14px; font-weight: 650; margin: 0; }
+.section-note { font-size: 11.5px; color: var(--muted); margin: 0 0 11px; max-width: 90ch; }
+
+.matrix-scroll {
+  overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel); box-shadow: var(--shadow);
+}
+.matrix { border-collapse: separate; border-spacing: 3px; width: 100%; min-width: 820px; }
+.matrix th, .matrix td { padding: 0; text-align: center; }
+
+.matrix thead th {
+  font-size: 10.5px; font-weight: 500; color: var(--muted); padding: 9px 0 5px;
+  font-variant-numeric: tabular-nums;
+}
+.matrix thead th small { display: block; font-size: 9px; margin-top: 2px; }
+.matrix .corner, .matrix .rowhead {
+  position: sticky; left: 0; z-index: 2; background: var(--panel);
+  text-align: left; padding: 6px 10px 6px 12px; min-width: 118px;
+}
+.matrix .corner { font-size: 10.5px; font-weight: 500; color: var(--muted); }
+.matrix .rowhead span { display: block; font-size: 12px; font-weight: 600; }
+.matrix .rowhead small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+
+.cell {
+  border-radius: 7px; padding: 6px 2px 5px; vertical-align: top; min-width: 46px;
+  background: color-mix(in srgb, var(--sky-full) calc(var(--sun, 0) * 100%), transparent);
+  border-bottom: 3px solid transparent;
+}
+.cell.night { background: color-mix(in srgb, var(--sky-none) 13%, transparent); }
+.cell.night strong { opacity: .74; }
+.cell.sun-unknown {
+  background: repeating-linear-gradient(135deg,
+    color-mix(in srgb, var(--muted) 9%, transparent) 0 4px, transparent 4px 8px);
+}
+.cell strong { display: block; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+.cell .wind { font-size: 10px; }
+.empty-cell { color: var(--muted); font-size: 12px; padding-top: 12px; }
+
+/* Walk verdict rides the bottom edge, so it never competes with the sun tint. */
+.walk-good { border-bottom-color: color-mix(in srgb, var(--good) 60%, transparent); }
+.walk-marginal { border-bottom-color: color-mix(in srgb, var(--warning) 60%, transparent); }
+.walk-no { border-bottom-color: color-mix(in srgb, var(--critical) 45%, transparent); }
+.walk-unknown { border-bottom-color: color-mix(in srgb, var(--muted) 30%, transparent); }
+
+/* ---------------------------------------------------------------- notes -- */
+
+footer { margin-top: 22px; font-size: 11.5px; color: var(--muted); line-height: 1.65; max-width: 84ch; }
+footer output { display: block; margin-bottom: 12px; }
+details { margin: 6px 0; }
+summary { cursor: pointer; padding: 6px 0; font-size: 12px; }
+details p { margin: 7px 0; }
+footer code {
+  font-size: 11px; background: var(--bg); padding: 1px 4px; border-radius: 3px;
+  border: 1px solid var(--line);
+}
