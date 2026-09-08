@@ -45,13 +45,14 @@
     <div class="section-head">
       <h2 id="matrix-title">Hour by hour</h2>
       <div class="pager">
-        <button id="earlier" type="button" aria-label="Previous 12 hours">‹ 12h</button>
+        <button id="earlier" type="button">‹</button>
         <span class="range" id="range" aria-live="polite"></span>
-        <button id="later" type="button" aria-label="Next 12 hours">12h ›</button>
+        <button id="later" type="button">›</button>
       </div>
     </div>
-    <p class="section-note">Cell shade is sun reaching the ground; the number below each temperature is
-    wind in mph; the bottom edge is walkability. Hover any cell for the full hour.</p>
+    <p class="section-note">Cell shade is sun reaching the ground. The small number beside each
+    temperature is the difference from Home. The circled number is wind in mph, and its colour is
+    walkability. Hover any cell for the full hour.</p>
     <div class="matrix-scroll" id="matrix"></div>
   </section>
 
@@ -85,6 +86,13 @@
       any of these points; the nearest official one sits well inland. Treat every number as what
       the forecast office expects for a 2.5 km square, not as a reading from that street corner.</p>
     </details>
+
+    <p class="repo">This is open source, and it is meant to be taken. Point it at your own
+    coordinates and it works anywhere the National Weather Service forecasts, which is anywhere
+    in the United States. Editing one array at the top of <code>app.js</code> is the whole job:
+    no build, no API key, no account.
+    <a href="https://github.com/dmitryzotman/sunset-weather" target="_blank" rel="noreferrer">Take
+    the code on GitHub</a> and make it yours.</p>
   </footer>
 
 </div>

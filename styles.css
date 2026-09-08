@@ -28,8 +28,12 @@
   --radius: 12px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+/* Light is the default on purpose, rather than following prefers-color-scheme:
+   this page is mostly a pale-blue sun ramp, and it reads better on a light
+   ground even for people who run their system dark. The dark palette is kept
+   and reachable with <html data-theme="dark">; swap this selector back to
+   @media (prefers-color-scheme: dark) to follow the system again. */
+:root[data-theme="dark"] {
     color-scheme: dark;
     --bg: #141513;
     --panel: #1a1a19;
@@ -43,7 +47,6 @@
     --sky-full: #2a78d6;
     --sky-none: #6e6b66;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25);
-  }
 }
 
 * { box-sizing: border-box; }
@@ -104,14 +107,14 @@ button.spinning { color: var(--muted); }
 }
 .wind-lg { font-size: 13px; color: var(--ink); }
 
-.key-dot {
-  width: 13px; height: 13px; border-radius: 3px; display: inline-block;
-  border: 1px solid var(--line);
+.key-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
+.key-good { background: var(--good); }
+.key-marginal { background: var(--warning); }
+.key-no { background: var(--critical); }
+.key-unknown {
+  background: color-mix(in srgb, var(--muted) 30%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent);
 }
-.key-good { background: color-mix(in srgb, var(--good) 55%, transparent); }
-.key-marginal { background: color-mix(in srgb, var(--warning) 50%, transparent); }
-.key-no { background: color-mix(in srgb, var(--critical) 28%, transparent); }
-.key-unknown { background: color-mix(in srgb, var(--muted) 22%, transparent); }
 
 /* ---------------------------------------------------------------- cards -- */
 
@@ -182,7 +185,7 @@ h2 { font-size: 14px; font-weight: 650; margin: 0; }
   overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--panel); box-shadow: var(--shadow);
 }
-.matrix { border-collapse: separate; border-spacing: 3px; width: 100%; min-width: 820px; }
+.matrix { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 660px; }
 .matrix th, .matrix td { padding: 0; text-align: center; }
 
 .matrix thead th {
@@ -199,25 +202,37 @@ h2 { font-size: 14px; font-weight: 650; margin: 0; }
 .matrix .rowhead small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 400; margin-top: 1px; }
 
 .cell {
-  border-radius: 7px; padding: 6px 2px 5px; vertical-align: top; min-width: 46px;
+  border-radius: 8px; padding: 7px 4px 7px; vertical-align: top; min-width: 78px;
   background: color-mix(in srgb, var(--sky-full) calc(var(--sun, 0) * 100%), transparent);
-  border-bottom: 3px solid transparent;
 }
 .cell.night { background: color-mix(in srgb, var(--sky-none) 13%, transparent); }
-.cell.night strong { opacity: .74; }
+.cell.night .cell-top strong { opacity: .74; }
 .cell.sun-unknown {
   background: repeating-linear-gradient(135deg,
     color-mix(in srgb, var(--muted) 9%, transparent) 0 4px, transparent 4px 8px);
 }
-.cell strong { display: block; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
-.cell .wind { font-size: 10px; }
-.empty-cell { color: var(--muted); font-size: 12px; padding-top: 12px; }
+.cell-top { display: flex; align-items: baseline; justify-content: center; gap: 4px; }
+.cell-top strong { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cell-delta { font-size: 10px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.cell-delta.cooler { color: var(--cooler); }
+.cell-delta.warmer { color: var(--warmer); }
+.empty-cell { color: var(--muted); font-size: 12px; padding-top: 14px; }
 
-/* Walk verdict rides the bottom edge, so it never competes with the sun tint. */
-.walk-good { border-bottom-color: color-mix(in srgb, var(--good) 60%, transparent); }
-.walk-marginal { border-bottom-color: color-mix(in srgb, var(--warning) 60%, transparent); }
-.walk-no { border-bottom-color: color-mix(in srgb, var(--critical) 45%, transparent); }
-.walk-unknown { border-bottom-color: color-mix(in srgb, var(--muted) 30%, transparent); }
+/* One mark, two facts: the number is wind, the colour is the hour's verdict. */
+.disc-wrap { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 6px; }
+.disc {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  font-size: 10.5px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.disc.walk-good { background: var(--good); color: #1c1b19; }
+.disc.walk-marginal { background: var(--warning); color: #1c1b19; }
+.disc.walk-no { background: var(--critical); color: #ffffff; }
+.disc.walk-unknown {
+  background: color-mix(in srgb, var(--muted) 30%, transparent); color: var(--ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent);
+}
+.dir { font-size: 9.5px; color: var(--muted); font-weight: 500; letter-spacing: .02em; }
 
 /* ---------------------------------------------------------------- notes -- */
 
@@ -226,6 +241,12 @@ footer output { display: block; margin-bottom: 12px; }
 details { margin: 6px 0; }
 summary { cursor: pointer; padding: 6px 0; font-size: 12px; }
 details p { margin: 7px 0; }
+.repo {
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line);
+  font-size: 12px; line-height: 1.6;
+}
+.repo a { font-weight: 600; }
+
 footer code {
   font-size: 11px; background: var(--bg); padding: 1px 4px; border-radius: 3px;
   border: 1px solid var(--line);
