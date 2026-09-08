@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Side-by-side National Weather Service forecasts for several points across San Francisco's west side.">
+  <title>Sunset Weather</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Sunset Weather</h1>
+    <span class="stamp" id="stamp">loading</span>
+    <button id="refresh" type="button">Refresh</button>
+  </header>
+
+  <div class="legend">
+    <div class="grp">
+      <span>Sun</span>
+      <div class="swatches" id="legend-sun"></div>
+      <span>after dark to full sun</span>
+    </div>
+    <div class="grp">
+      <span>Wind mph</span>
+      <span id="legend-wind"></span>
+    </div>
+    <div class="grp">
+      <span>Walk</span>
+      <span class="key-dot key-good"></span><span>good</span>
+      <span class="key-dot key-marginal"></span><span>marginal</span>
+      <span class="key-dot key-no"></span><span>no</span>
+      <span class="key-dot key-unknown"></span><span>unknown</span>
+    </div>
+  </div>
+
+  <section aria-labelledby="now-title">
+    <h2 id="now-title" class="sr-only">Conditions right now</h2>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section aria-labelledby="matrix-title">
+    <div class="section-head">
+      <h2 id="matrix-title">Hour by hour</h2>
+      <div class="pager">
+        <button id="earlier" type="button" aria-label="Previous 12 hours">‹ 12h</button>
+        <span class="range" id="range" aria-live="polite"></span>
+        <button id="later" type="button" aria-label="Next 12 hours">12h ›</button>
+      </div>
+    </div>
+    <p class="section-note">Cell shade is sun reaching the ground; the number below each temperature is
+    wind in mph; the bottom edge is walkability. Hover any cell for the full hour.</p>
+    <div class="matrix-scroll" id="matrix"></div>
+  </section>
+
+  <footer>
+    <output id="status" aria-live="polite">Waiting for NWS</output>
+
+    <details>
+      <summary>Walkability thresholds</summary>
+      <div id="thresholds"></div>
+      <p>All of these live in the <code>CONFIG.walk</code> object at the top of
+      <code>app.js</code>. Change them there; this list is generated from the same values,
+      so it cannot drift out of date.</p>
+    </details>
+
+    <details>
+      <summary>How the numbers are produced</summary>
+      <p><strong>Source:</strong> the National Weather Service API, which needs no key. Each
+      location is resolved from its coordinates to a forecast grid cell roughly 2.5 km across.
+      Two endpoints are used per location: the hourly forecast, which is human-adjusted by the
+      local forecast office, and the raw gridpoint data for sky cover, gusts, humidity, dewpoint
+      and visibility. If the raw data fails, the page still works and the affected factors read
+      as unknown rather than being assumed fine.</p>
+      <p><strong>Grid cells are not permanent.</strong> NWS states that a coordinate's grid
+      coordinates, and even its assigned office, can change. Cells are therefore resolved from
+      coordinates once a day rather than hardcoded; if one moves, the change is logged to the
+      browser console and the card's subtitle updates.</p>
+      <p><strong>Sun</strong> is the sun's height in the sky at that hour and latitude, reduced
+      by cloud using the Kasten-Czeplak relation, so thin cloud barely dims and full overcast
+      still passes about a quarter of clear-sky light. It is not the same as sky cover.</p>
+      <p><strong>These are forecasts, not measurements.</strong> There is no weather station at
+      any of these points; the nearest official one sits well inland. Treat every number as what
+      the forecast office expects for a 2.5 km square, not as a reading from that street corner.</p>
+    </details>
+  </footer>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>
