@@ -16,7 +16,7 @@
   --sky-full: #86b6ef;
   --sky-none: #8d8a84;
 
-  /* Status palette. Fixed in both themes so a colour never changes meaning. */
+  /* Status palette. Fixed in both themes so a color never changes meaning. */
   --good: #0ca30c;
   --warning: #fab219;
   --serious: #ec835a;
@@ -100,7 +100,7 @@ button.spinning { color: var(--muted); }
 .sw-night { background: color-mix(in srgb, var(--sky-none) 13%, transparent); }
 
 /* Wind is a plain number. It feeds the walkability verdict already; a second
-   colour scale of its own only competed with the sun tint. */
+   color scale of its own only competed with the sun tint. */
 .wind {
   font-variant-numeric: tabular-nums; font-size: 11px; color: var(--muted);
   white-space: nowrap;
@@ -218,8 +218,8 @@ h2 { font-size: 14px; font-weight: 650; margin: 0; }
 .cell-delta.warmer { color: var(--warmer); }
 .empty-cell { color: var(--muted); font-size: 12px; padding-top: 14px; }
 
-/* One mark, two facts: the number is wind, the colour is the hour's verdict. */
-.disc-wrap { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 6px; }
+/* One mark, two facts: the number is wind, the color is the hour's verdict. */
+.disc-wrap { display: flex; justify-content: center; margin-top: 6px; }
 .disc {
   display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
   font-size: 10.5px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
@@ -232,7 +232,6 @@ h2 { font-size: 14px; font-weight: 650; margin: 0; }
   background: color-mix(in srgb, var(--muted) 30%, transparent); color: var(--ink);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent);
 }
-.dir { font-size: 9.5px; color: var(--muted); font-weight: 500; letter-spacing: .02em; }
 
 /* ---------------------------------------------------------------- notes -- */
 
