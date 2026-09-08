@@ -53,7 +53,7 @@
       visMin:     3000        // metres; below this is fog, not haze
     },
 
-    hoursAhead:  12,          // columns in the comparison matrix
+    hoursAhead:  6,           // columns in the comparison matrix
     refreshMs:   15 * 60 * 1000,
     clockMs:     60 * 1000,
     gridTtlMs:   24 * 60 * 60 * 1000,  // NWS serves /points with a 24h max-age
@@ -498,24 +498,40 @@
     return CONFIG.windBands[CONFIG.windBands.length - 1];
   }
 
-  /* Wind is a plain number. It already feeds the walkability verdict, and giving
-     it a second colour scale of its own only competed with the sun tint. */
+  /* On a card, wind reads as a value with its direction. In the matrix it sits
+     inside a circle whose colour is the hour's walkability, so one mark carries
+     both the number you want and the verdict you are scanning for. */
   function windValue(row, withUnit) {
     var span = el('span', 'wind' + (withUnit ? ' wind-lg' : ''));
+    var dir = row.dirText || compass(row.dirDeg);
     if (row.wind == null) {
       span.textContent = '—';
       span.title = 'Wind unavailable';
       return span;
     }
-    span.textContent = withUnit ? row.wind + ' mph' : String(row.wind);
+    span.textContent = row.wind + (withUnit ? ' mph' : '') + (withUnit && dir ? ' ' + dir : '');
     var band = windBand(row.wind);
-    var dir = row.dirText || compass(row.dirDeg);
     var tip = row.wind + ' mph' + (dir ? ' ' + dir : '') +
       (band ? ' (' + band.label + ')' : '') +
       (row.gust != null && row.gust > row.wind + 4 ? ', gusting ' + row.gust : '');
     span.title = tip;
     span.setAttribute('aria-label', tip);
     return span;
+  }
+
+  /** The matrix mark: wind speed inside a walkability-coloured disc. */
+  function windDisc(row) {
+    var wrap = el('span', 'disc-wrap');
+    var disc = el('span', 'disc walk-' + row.walk.level);
+    disc.textContent = row.wind == null ? '?' : String(row.wind);
+    var dir = row.dirText || compass(row.dirDeg);
+    var tip = (row.wind == null ? 'wind unknown' : row.wind + ' mph' + (dir ? ' ' + dir : '')) +
+      ' · walk: ' + row.walk.level + (row.walk.reason ? ' (' + row.walk.reason + ')' : '');
+    disc.title = tip;
+    disc.setAttribute('aria-label', tip);
+    wrap.appendChild(disc);
+    if (dir) wrap.appendChild(el('span', 'dir', dir));
+    return wrap;
   }
 
   function skyIcon(row) {
@@ -594,7 +610,10 @@
       head.appendChild(el('h3', null, loc.name));
       var sub = el('p', 'sub');
       var cell = cells[loc.id];
-      sub.textContent = loc.detail + (cell ? ' · ' + cell.office + ' ' + cell.x + ',' + cell.y : '');
+      sub.textContent = loc.detail;
+      // The resolved grid cell still matters when one moves, but it is reference
+      // material rather than something to read every time. Keep it on hover.
+      if (cell) sub.title = 'NWS grid cell ' + cell.office + ' ' + cell.x + ',' + cell.y;
       head.appendChild(sub);
       card.appendChild(head);
 
@@ -613,7 +632,7 @@
       top.appendChild(temp);
       var delta = el('span', 'delta');
       if (loc.id === BASELINE) {
-        delta.textContent = 'reference';
+        delta.textContent = '';
       } else if (baseRow) {
         var d = row.temp - baseRow.temp;
         var baseName = (LOCATIONS.filter(function (l) { return l.id === BASELINE; })[0] || { name: 'baseline' }).name;
@@ -653,17 +672,19 @@
       link.setAttribute('aria-label', 'Full NWS forecast for ' + loc.name);
       var status = el('span', 'card-status');
       var d2 = data[loc.id];
+      // Only speak up when something is wrong. A normal issue time is noise.
       if (!d2.fresh) {
         status.textContent = 'cached ' + clockLabel(d2.fetchedAt);
         status.classList.add('warn');
       } else if (now - Date.parse(d2.updated) > CONFIG.staleForecastMs) {
-        status.textContent = 'NWS issue ' + clockLabel(Date.parse(d2.updated)) + ', old';
+        status.textContent = 'forecast is stale';
         status.classList.add('warn');
       } else if (d2.degraded) {
         status.textContent = 'partial data';
         status.classList.add('warn');
       } else {
-        status.textContent = 'issued ' + clockLabel(Date.parse(d2.updated));
+        status.textContent = '';
+        status.title = 'NWS issued this forecast at ' + clockLabel(Date.parse(d2.updated));
       }
       foot.appendChild(status);
       foot.appendChild(link);
@@ -713,6 +734,12 @@
     table.appendChild(thead);
 
     var tbody = el('tbody');
+
+    // Baseline temperature per hour, so every other cell can carry its delta.
+    var baseByHour = {};
+    windowRows({ id: BASELINE }, matrixOffset, CONFIG.hoursAhead)
+      .forEach(function (r) { baseByHour[hourKey(r.at)] = r.temp; });
+
     LOCATIONS.forEach(function (loc) {
       var rows = windowRows(loc, matrixOffset, CONFIG.hoursAhead);
       var byHour = {};
@@ -727,22 +754,31 @@
         var row = byHour[hourKey(h)];
         var td = el('td', 'cell');
         if (!row) { td.textContent = '—'; td.className = 'cell empty-cell'; tr.appendChild(td); return; }
-        td.classList.add('walk-' + row.walk.level);
         td.style.setProperty('--sun', sunTint(row.sun).toFixed(3));
         if (row.sun != null && row.sun <= 0.005) td.classList.add('night');
         if (row.sun == null) td.classList.add('sun-unknown');
-        td.appendChild(el('strong', null, row.temp + '°'));
-        td.appendChild(windValue(row));
+
+        var top = el('div', 'cell-top');
+        top.appendChild(el('strong', null, row.temp + '°'));
+        var base = baseByHour[hourKey(h)];
+        if (loc.id !== BASELINE && base != null) {
+          var d = row.temp - base;
+          var dl = el('span', 'cell-delta', (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d));
+          dl.classList.add(d < 0 ? 'cooler' : d > 0 ? 'warmer' : 'same');
+          top.appendChild(dl);
+        }
+        td.appendChild(top);
+        td.appendChild(windDisc(row));
+
         var tip = [hourLabel(row.at), row.temp + '°F',
           row.sun == null ? 'sun unknown' : row.sun <= 0.005 ? 'after dark' : Math.round(row.sun * 100) + '% sun',
           row.cloud != null ? row.cloud + '% cloud' : null,
-          row.wind != null ? row.wind + ' mph' : 'wind unknown',
+          row.wind != null ? row.wind + ' mph ' + (row.dirText || compass(row.dirDeg)) : 'wind unknown',
           row.pop != null ? 'rain ' + row.pop + '%' : null,
           'walk: ' + row.walk.level + (row.walk.reason ? ' (' + row.walk.reason + ')' : ''),
           row.text].filter(Boolean).join(' · ');
         td.title = tip;
-        var sr = el('span', 'sr-only', tip);
-        td.appendChild(sr);
+        td.appendChild(el('span', 'sr-only', tip));
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -755,6 +791,10 @@
   function renderPager(hours) {
     var back = document.getElementById('earlier');
     var fwd = document.getElementById('later');
+    back.textContent = '‹ ' + CONFIG.hoursAhead + 'h';
+    fwd.textContent = CONFIG.hoursAhead + 'h ›';
+    back.setAttribute('aria-label', 'Previous ' + CONFIG.hoursAhead + ' hours');
+    fwd.setAttribute('aria-label', 'Next ' + CONFIG.hoursAhead + ' hours');
     var range = document.getElementById('range');
     var cap = maxOffset();
     back.disabled = matrixOffset <= 0;
