@@ -124,6 +124,18 @@ button.spinning { color: var(--muted); }
 }
 @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
 
+/* On a phone the hour-by-hour grid is what you open the page for, so it comes
+   first. Explicit orders on every child, because a lone negative order would
+   also jump the section above the header and the key. */
+@media (max-width: 700px) {
+  .wrap { display: flex; flex-direction: column; }
+  .wrap > header        { order: 1; }
+  .wrap > .legend       { order: 2; }
+  .wrap > .hours-section { order: 3; }
+  .wrap > .cards-section { order: 4; margin-top: 6px; }
+  .wrap > footer        { order: 5; }
+}
+
 .card {
   background: color-mix(in srgb, var(--sky-full) calc(var(--sun, 0) * 100%), var(--panel));
   border: 1px solid var(--line); border-radius: var(--radius);
