@@ -56,13 +56,20 @@ Four variables, four separate channels, so none of them fight:
 | Variable | Channel |
 |---|---|
 | Temperature | the large number |
+| Difference from the baseline | the small number beside it |
 | Sun reaching the ground | the background, pale to blue |
-| Wind | the small number beneath |
-| Walkability | the cell's bottom edge |
+| Wind | the number inside the disc |
+| Walkability | the colour of that disc |
 
 Cards and matrix cells share the same sun-driven background, so a card and its
 row read as the same thing at two sizes. The card's wash is scaled down, because
 a large area needs less chroma than a small mark to register as equally strong.
+
+The page defaults to light rather than following `prefers-color-scheme`. Most of
+the information here is carried by a pale blue sun ramp, which holds up better on
+a light ground. The dark palette is still defined and applies to
+`<html data-theme="dark">`; point that selector back at a
+`@media (prefers-color-scheme: dark)` query to follow the system instead.
 
 **Sun is not sky cover.** It's the sun's height in the sky at that hour and
 latitude, reduced by cloud using the Kasten-Czeplak relation, so thin cloud
@@ -70,19 +77,22 @@ barely dims and full overcast still passes about a quarter of clear-sky light.
 Grey cells are hours when the sun is below the horizon. A clear winter morning
 and an overcast summer noon can land in the same place, which is the point.
 
-Wind is a bare number, deliberately. It already feeds the walkability verdict,
-so giving it a second colour scale of its own put two competing hues on every
-cell and made the sun tint harder to read. The bands still exist as words: the
-legend spells out which speeds count as calm, breezy, windy and too windy, and
-each value's tooltip names its band.
+Wind gets no colour scale of its own. An earlier version banded it by speed, and
+two competing hues per cell made the sun tint unreadable. In the matrix the wind
+number instead sits inside a disc coloured by the hour's walkability, so a single
+mark carries the value you want and the verdict you are scanning for. The speed
+bands survive as words: the legend spells out which speeds count as calm, breezy,
+windy and too windy, and every tooltip names the band.
 
 Locations are ordered nearest-to-farthest from `BASELINE`, computed at load
 rather than hand-sorted, so the ordering survives edits to the coordinates. Both
 the cards and the matrix rows use that order, which makes a coastal gradient
 read outward from home.
 
-The matrix pages forward and back in 12-hour blocks. NWS hourly forecasts run
-about a week ahead, so paging keeps going until the data does.
+The matrix shows six hours at a time and pages forward and back by six. NWS
+hourly forecasts run about a week ahead, so paging keeps going until the data
+does. Change `CONFIG.hoursAhead` and the columns, the page size and the button
+labels all follow.
 
 ## Grid cells are not permanent
 
@@ -98,9 +108,8 @@ resulting `gridX`/`gridY` forever. Don't. From the NWS API documentation:
 The failure mode is quiet. A stale cell that still exists returns HTTP 200 with
 perfectly valid data for the wrong patch of ground, and nothing errors. So this
 app re-resolves from coordinates once a day, matching the 24-hour `max-age` NWS
-serves on `/points`, logs a console warning if a cell moves, and prints each
-location's current cell under its name so a move is visible without opening
-devtools.
+serves on `/points`, logs a console warning if a cell moves, and shows each
+location's current cell on hover so a move is visible without opening devtools.
 
 ## Degrading rather than failing
 
