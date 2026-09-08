@@ -50,10 +50,11 @@
       humidGood:  85,         // % relative humidity
       humidMax:   92,
       spreadGood: 4,          // degF dewpoint depression; small spread means damp air
-      visMin:     3000        // metres; below this is fog, not haze
+      visMin:     3000        // meters; below this is fog, not haze
     },
 
     hoursAhead:  6,           // columns in the comparison matrix
+    minOutlookHours: 8,       // card verdict never looks at less than this
     refreshMs:   15 * 60 * 1000,
     clockMs:     60 * 1000,
     gridTtlMs:   24 * 60 * 60 * 1000,  // NWS serves /points with a 24h max-age
@@ -358,7 +359,7 @@
     return { level: 'good', reason: '' };
   }
 
-  /** Earliest run of good daylight hours. Night hours are scored but never advised. */
+  /** Longest run of good daylight hours. Night hours are scored but never advised. */
   function bestWindow(rows) {
     var runs = [], cur = null, daylight = 0;
     for (var i = 0; i < rows.length; i++) {
@@ -385,7 +386,12 @@
     var covered = 0;
     for (i = 0; i < runs.length; i++) covered += runs[i].b - runs[i].a + 1;
     if (daylight && covered === daylight) return { text: 'Good all day', note: '' };
+    // Longest stretch wins, earliest breaks a tie. Picking the first run instead
+    // would let a single good hour beat a three-hour one later the same day.
     var r = runs[0];
+    for (i = 1; i < runs.length; i++) {
+      if ((runs[i].b - runs[i].a) > (r.b - r.a)) r = runs[i];
+    }
     var end = rows[r.b + 1] ? rows[r.b + 1].at : rows[r.b].at + 3600000;
     return { text: 'Walk ' + hourLabel(rows[r.a].at) + ' to ' + hourLabel(end), note: '' };
   }
@@ -489,7 +495,7 @@
 
   // ------------------------------------------------------------- rendering --
 
-  /** The band a wind speed falls in. Used for wording, not colour. */
+  /** The band a wind speed falls in. Used for wording, not color. */
   function windBand(mph) {
     if (mph == null) return null;
     for (var i = 0; i < CONFIG.windBands.length; i++) {
@@ -499,7 +505,7 @@
   }
 
   /* On a card, wind reads as a value with its direction. In the matrix it sits
-     inside a circle whose colour is the hour's walkability, so one mark carries
+     inside a circle whose color is the hour's walkability, so one mark carries
      both the number you want and the verdict you are scanning for. */
   function windValue(row, withUnit) {
     var span = el('span', 'wind' + (withUnit ? ' wind-lg' : ''));
@@ -519,7 +525,7 @@
     return span;
   }
 
-  /** The matrix mark: wind speed inside a walkability-coloured disc. */
+  /** The matrix mark: wind speed inside a walkability-colored disc. */
   function windDisc(row) {
     var wrap = el('span', 'disc-wrap');
     var disc = el('span', 'disc walk-' + row.walk.level);
@@ -529,8 +535,7 @@
       ' · walk: ' + row.walk.level + (row.walk.reason ? ' (' + row.walk.reason + ')' : '');
     disc.title = tip;
     disc.setAttribute('aria-label', tip);
-    wrap.appendChild(disc);
-    if (dir) wrap.appendChild(el('span', 'dir', dir));
+    wrap.appendChild(disc);   // direction stays on the cards and in the tooltip
     return wrap;
   }
 
@@ -559,10 +564,16 @@
     return wrap;
   }
 
-  function upcoming(loc) {
+  /* The card's outlook runs to the end of today, with a floor so a late-evening
+     load still has something to say. Deliberately not tied to the matrix window:
+     the matrix asks what to compare right now, the card asks when to go today. */
+  function outlook(loc) {
     var d = data[loc.id];
     if (!d) return [];
-    return d.rows.filter(function (r) { return r.end > now; }).slice(0, CONFIG.hoursAhead + 1);
+    var midnight = new Date(now);
+    midnight.setHours(23, 59, 59, 999);
+    var horizon = Math.max(midnight.getTime(), now + CONFIG.minOutlookHours * 3600000);
+    return d.rows.filter(function (r) { return r.end > now && r.at <= horizon; });
   }
 
   /** `count` hours of forecast beginning `offset` hours from now. */
@@ -590,11 +601,11 @@
     var wrap = document.getElementById('cards');
     wrap.innerHTML = '';
     var baseRow = null;
-    var baseLoc = data[BASELINE] && upcoming({ id: BASELINE })[0];
+    var baseLoc = data[BASELINE] && outlook({ id: BASELINE })[0];
     if (baseLoc) baseRow = baseLoc;
 
     LOCATIONS.forEach(function (loc) {
-      var rows = upcoming(loc);
+      var rows = outlook(loc);
       var row = rows[0];
       var card = el('article', 'card');
       if (row) {
