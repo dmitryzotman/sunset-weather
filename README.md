@@ -12,6 +12,8 @@ single grid so you can see where the fog line actually falls today.
 No build step, no dependencies, no API key, no account. Three files plus a
 README and a licence.
 
+**Live:** <https://dmitryzotman.github.io/sunset-weather/>
+
 ## Running it
 
 Open `index.html`. That's it, whether from disk or from any static host.
