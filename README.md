@@ -4,13 +4,13 @@ Side-by-side National Weather Service forecasts for several points in one small
 area, built for places where the weather changes faster than the map does.
 
 San Francisco's west side is the motivating case: on a summer afternoon the
-Outer Sunset can sit fogged in at 60°F while the Inner Sunset, two kilometres
+Outer Sunset can sit fogged in at 60°F while the Inner Sunset, two kilometers
 inland, is clear and 75°F. Every consumer weather app collapses that into one
 number for "San Francisco". This shows each point separately, and puts them in a
 single grid so you can see where the fog line actually falls today.
 
 No build step, no dependencies, no API key, no account. Three files plus a
-README and a licence.
+README and a license.
 
 **Live:** <https://dmitryzotman.github.io/sunset-weather/>
 
@@ -43,7 +43,7 @@ var BASELINE = 'home';   // every temperature delta is measured against this one
 **Thresholds.** `CONFIG.walk` holds the walkability bands; `CONFIG.windBands`
 names the wind ranges used in the legend and tooltips. The "Walkability thresholds" disclosure at the
 bottom of the page is generated from these same values, so the documentation
-cannot drift away from the behaviour.
+cannot drift away from the behavior.
 
 The defaults are tuned for "crisp but not wet", which is a specific preference
 about walking in a foggy coastal city. If you want something else, this is the
@@ -59,7 +59,7 @@ Four variables, four separate channels, so none of them fight:
 | Difference from the baseline | the small number beside it |
 | Sun reaching the ground | the background, pale to blue |
 | Wind | the number inside the disc |
-| Walkability | the colour of that disc |
+| Walkability | the color of that disc |
 
 Cards and matrix cells share the same sun-driven background, so a card and its
 row read as the same thing at two sizes. The card's wash is scaled down, because
@@ -74,12 +74,12 @@ a light ground. The dark palette is still defined and applies to
 **Sun is not sky cover.** It's the sun's height in the sky at that hour and
 latitude, reduced by cloud using the Kasten-Czeplak relation, so thin cloud
 barely dims and full overcast still passes about a quarter of clear-sky light.
-Grey cells are hours when the sun is below the horizon. A clear winter morning
+Gray cells are hours when the sun is below the horizon. A clear winter morning
 and an overcast summer noon can land in the same place, which is the point.
 
-Wind gets no colour scale of its own. An earlier version banded it by speed, and
+Wind gets no color scale of its own. An earlier version banded it by speed, and
 two competing hues per cell made the sun tint unreadable. In the matrix the wind
-number instead sits inside a disc coloured by the hour's walkability, so a single
+number instead sits inside a disc colored by the hour's walkability, so a single
 mark carries the value you want and the verdict you are scanning for. The speed
 bands survive as words: the legend spells out which speeds count as calm, breezy,
 windy and too windy, and every tooltip names the band.
@@ -93,6 +93,13 @@ The matrix shows six hours at a time and pages forward and back by six. NWS
 hourly forecasts run about a week ahead, so paging keeps going until the data
 does. Change `CONFIG.hoursAhead` and the columns, the page size and the button
 labels all follow.
+
+Each card's walking verdict runs on its own horizon, to the end of today with a
+floor of `CONFIG.minOutlookHours`, rather than borrowing the matrix's window.
+They answer different questions: the matrix is what to compare right now, the
+card is when to go today. Of the good daylight stretches it finds, it reports the
+longest and breaks ties toward the earlier one, so a lone good hour cannot
+outrank a longer stretch later the same day.
 
 ## Grid cells are not permanent
 
@@ -132,7 +139,7 @@ verdict to give.
 `api.weather.gov` returns intermittent 500s often enough to matter, so each
 request has a 12-second timeout and one retry, concurrent requests for the same
 URL are shared rather than duplicated, and a failed refresh falls back to the
-last good response from `localStorage`, labelled as cached rather than passed
+last good response from `localStorage`, labeled as cached rather than passed
 off as current.
 
 ## The thing to keep in mind
@@ -143,6 +150,6 @@ the warm side of the fog line, which makes it worse than useless as a proxy.
 Every number here is what the forecast office expects for a 2.5 km square, not a
 reading from that street corner.
 
-## Licence
+## License
 
 MIT. See `LICENSE`.
