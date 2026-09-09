@@ -45,6 +45,8 @@
       tempOk:     [44, 80],
       windGood:   15,         // mph sustained
       windMax:    23,
+      gustGood:   25,         // mph gusts; separate from sustained-wind limits
+      gustMax:    35,
       popGood:    15,         // % chance of precipitation
       popMax:     30,
       humidGood:  85,         // % relative humidity
@@ -81,8 +83,6 @@
     LOCATIONS.sort(function (a, b) { return a.km - b.km; });
   })();
 
-  var CARD_TINT = 0.42;   // large-area scaling for the card sun wash
-
   var API = 'https://api.weather.gov/';
   var STORE = 'sunset-weather.v1.';
 
@@ -96,8 +96,6 @@
   var loading = true;
   var inFlight = false;
   var matrixOffset = 0;   // hours forward from now, stepped in CONFIG.hoursAhead blocks
-  var detailRows = {};    // "locId|hourKey" -> { loc, row }, for the tap panel
-  var detailKey = null;   // which cell the panel is currently showing
 
   // ----------------------------------------------------------------- utils --
 
@@ -253,50 +251,24 @@
     return Math.max.apply(null, nums.map(Number));   // upper end of a range
   }
 
-  // ----------------------------------------------------------------- solar --
-
-  /** Solar elevation in degrees. NOAA approximate; ample for a background tint. */
-  function solarElevation(ms, lat, lon) {
-    var rad = Math.PI / 180;
-    var n = (ms / 86400000) + 2440587.5 - 2451545.0;
-    var L = (280.460 + 0.9856474 * n) % 360;
-    var g = ((357.528 + 0.9856003 * n) % 360) * rad;
-    var lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad;
-    var eps = 23.439 * rad;
-    var decl = Math.asin(Math.sin(eps) * Math.sin(lambda));
-    var y = Math.pow(Math.tan(eps / 2), 2);
-    var Lr = L * rad;
-    var eot = (4 / rad) * (y * Math.sin(2 * Lr) - 2 * 0.0167 * Math.sin(g) +
-      4 * 0.0167 * y * Math.sin(g) * Math.cos(2 * Lr) -
-      0.5 * y * y * Math.sin(4 * Lr) - 1.25 * 0.0167 * 0.0167 * Math.sin(2 * g));
-    var ha = ((((ms / 60000) % 1440) + eot + 4 * lon + 1440) % 1440 / 4 - 180) * rad;
-    var la = lat * rad;
-    var sinAlt = Math.sin(la) * Math.sin(decl) + Math.cos(la) * Math.cos(decl) * Math.cos(ha);
-    return Math.asin(clamp(sinAlt, -1, 1)) / rad;
-  }
-
-  /*
-   * How much sun actually lands on you, 0 to 1: how high the sun is, times how
-   * much cloud is in the way. Cloud attenuation is Kasten-Czeplak, so thin cloud
-   * barely dims and full overcast still passes about a quarter of clear-sky light.
-   * Returns null when sky cover is unknown, so the UI can say so.
-   */
-  function sunStrength(ms, lat, lon, cloudPct) {
-    var elev = solarElevation(ms, lat, lon);
-    if (elev <= -0.833) return 0;                 // below the refracted horizon
-    var clear = Math.max(0, Math.sin(elev * Math.PI / 180));
-    if (cloudPct == null) return null;
-    var c = clamp(cloudPct / 100, 0, 1);
-    return clear * (1 - 0.75 * Math.pow(c, 3.4));
-  }
-
-  /** Tint fraction. Concave so a low winter sun still reads as some sun. */
-  function sunTint(strength) {
-    if (strength == null || strength <= 0) return 0;
-    return Math.pow(strength, 0.7);
-  }
-
   // ----------------------------------------------------------- walkability --
+
+  /* One interpretation drives both the icon and any text-based concern.
+     Original NWS wording is always displayed, including probability qualifiers. */
+  function conditionInfo(row) {
+    var t = (row.text || '').toLowerCase();
+    if (/thunder|tornado|hurricane|tropical storm|blizzard/.test(t)) return { icon: 'storm', risk: 2, reason: 'storm risk' };
+    if (/freezing rain|freezing drizzle|ice pellets|sleet|hail/.test(t)) return { icon: 'ice', risk: 2, reason: 'ice or hail risk' };
+    if (/smoke|haze|dust|sand/.test(t)) return { icon: 'haze', uncertain: true, reason: 'air quality not assessed' };
+    if (/snow|flurr/.test(t)) return { icon: 'snow', risk: 1, reason: 'snow' };
+    if (/drizzle/.test(t)) return { icon: 'rain', risk: 1, reason: 'drizzle' };
+    if (/rain|shower/.test(t)) return { icon: 'rain', risk: /chance|possible/.test(t) ? 1 : 2, reason: 'rain' };
+    if (/fog|mist/.test(t)) return { icon: 'fog', risk: /dense|freezing/.test(t) ? 2 : 1, reason: 'fog' };
+    if (/partly|mostly sunny|few clouds/.test(t)) return { icon: row.day === false ? 'partly-night' : 'partly' };
+    if (/cloud|overcast/.test(t)) return { icon: 'cloud' };
+    if (/sunny|clear|fair/.test(t)) return { icon: row.day === false ? 'moon' : 'sun' };
+    return { icon: 'unknown' };
+  }
 
   /*
    * Score each factor 0 good / 1 marginal / 2 disqualifying / null unknown, then:
@@ -311,6 +283,11 @@
     var W = CONFIG.walk;
     var core = [];   // temp, wind, rain: without these there is no verdict to give
     var soft = [];   // damp and fog: they can condemn an hour, never rescue one
+    var condition = conditionInfo(row);
+    if (condition.risk) soft.push([condition.risk, condition.reason]);
+    if (row.gust != null) {
+      soft.push([row.gust >= W.gustMax ? 2 : row.gust >= W.gustGood ? 1 : 0, 'gusts']);
+    }
 
     if (row.temp == null) core.push([null, 'temp']);
     else if (row.temp < W.tempOk[0] || row.temp > W.tempOk[1]) core.push([2, 'temp']);
@@ -351,12 +328,21 @@
     for (i = 0; i < all.length; i++) {
       if (all[i][0] === 2) return { level: 'no', reason: all[i][1] };
     }
+    if (condition.uncertain) return { level: 'unknown', reason: condition.reason };
     for (i = 0; i < core.length; i++) {
       if (core[i][0] === null) return { level: 'unknown', reason: 'no ' + core[i][1] + ' data' };
     }
-    for (i = 0; i < all.length; i++) {
-      if (all[i][0] === 1) return { level: 'marginal', reason: all[i][1] };
-    }
+    // Yellow and orange share the existing marginal band. Count distinct
+    // concerns, so humidity and dewpoint do not count dampness twice.
+    var concerns = [];
+    all.forEach(function (factor) {
+      var concern = factor[1] === 'drizzle' ? 'rain' : factor[1];
+      if (factor[0] === 1 && concerns.indexOf(concern) === -1) concerns.push(concern);
+    });
+    if (concerns.length) return {
+      level: 'marginal', reason: concerns.join(', '),
+      tone: concerns.length > 1 ? 'caution' : 'marginal'
+    };
     return { level: 'good', reason: '' };
   }
 
@@ -418,8 +404,7 @@
           dew: dew[k] != null ? Math.round(dew[k]) : null,
           visibility: vis[k] != null ? vis[k] : null,
           pop: p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value != null
-            ? p.probabilityOfPrecipitation.value : null,
-          sun: sunStrength(at + 1800000, loc.lat, loc.lon, cloud)
+            ? p.probabilityOfPrecipitation.value : null
         };
         row.walk = walkScore(row);
         return row;
@@ -428,6 +413,7 @@
       var payload = {
         rows: rows,
         updated: props.updateTime,
+        gridUpdated: g && g.updateTime,
         fetchedAt: Date.now(),
         degraded: !g
       };
@@ -437,6 +423,7 @@
     }).catch(function (err) {
       var cached = readStore('fc.' + loc.id);
       if (cached && cached.rows && cached.rows.some(function (r) { return r.end > Date.now(); })) {
+        cached.rows.forEach(function (r) { r.walk = walkScore(r); });
         data[loc.id] = Object.assign({ fresh: false }, cached);
         failures[loc.id] = 'showing cached forecast';
       } else {
@@ -468,9 +455,7 @@
     return CONFIG.windBands[CONFIG.windBands.length - 1];
   }
 
-  /* On a card, wind reads as a value with its direction. In the matrix it sits
-     inside a circle whose color is the hour's walkability, so one mark carries
-     both the number you want and the verdict you are scanning for. */
+  /* Wind stays on the cards and contributes to the hourly walkability color. */
   function windValue(row, withUnit) {
     var span = el('span', 'wind' + (withUnit ? ' wind-lg' : ''));
     var dir = row.dirText || compass(row.dirDeg);
@@ -489,30 +474,13 @@
     return span;
   }
 
-  /** The matrix mark: wind speed inside a walkability-colored disc. */
-  function windDisc(row) {
-    var wrap = el('span', 'disc-wrap');
-    var disc = el('span', 'disc walk-' + row.walk.level);
-    disc.textContent = row.wind == null ? '?' : String(row.wind);
-    var dir = row.dirText || compass(row.dirDeg);
-    var tip = (row.wind == null ? 'wind unknown' : row.wind + ' mph' + (dir ? ' ' + dir : '')) +
-      ' · walk: ' + row.walk.level + (row.walk.reason ? ' (' + row.walk.reason + ')' : '');
-    disc.title = tip;
-    disc.setAttribute('aria-label', tip);
-    wrap.appendChild(disc);   // direction stays on the cards and in the tooltip
-    return wrap;
-  }
-
   function skyIcon(row) {
-    var t = (row.text || '').toLowerCase();
-    var name = /thunder/.test(t) ? 'storm'
-      : /snow|sleet/.test(t) ? 'snow'
-      : /rain|drizzle|shower/.test(t) ? 'rain'
-      : /fog|mist|haze/.test(t) ? 'fog'
-      : /partly|mostly sunny|few clouds/.test(t) ? 'partly'
-      : /cloud|overcast/.test(t) ? 'cloud'
-      : row.day ? 'sun' : 'moon';
+    var name = conditionInfo(row).icon;
     var paths = {
+      unknown: '<circle cx="12" cy="12" r="8"/><path d="M10 9a2 2 0 1 1 3 1.7c-1 .6-1 1-1 2.3M12 16h.01"/>',
+      haze: '<path d="M3 7h13M7 11h14M3 15h14M7 19h14"/>',
+      ice: '<path d="M7 12h10a3 3 0 0 0 0-6 5 5 0 0 0-9-1 3.5 3.5 0 0 0-1 7zM8 15l-2 3 2 3 2-3zM16 15l-2 3 2 3 2-3z"/>',
+      'partly-night': '<path d="M12 3a5.5 5.5 0 1 0 4 8 5 5 0 0 1-4-8z"/><path d="M9 20h9a3 3 0 0 0 0-6 4.5 4.5 0 0 0-8-1 3.5 3.5 0 0 0-1 7z"/>',
       sun:    '<circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.6M12 19.4V22M2 12h2.6M19.4 12H22M4.9 4.9l1.9 1.9M17.2 17.2l1.9 1.9M19.1 4.9l-1.9 1.9M6.8 17.2l-1.9 1.9"/>',
       moon:   '<path d="M20 14.5A8.2 8.2 0 0 1 9.5 4 8.2 8.2 0 1 0 20 14.5z"/>',
       partly: '<circle cx="8.5" cy="8.5" r="3.2"/><path d="M8.5 2.4v1.8M2.4 8.5h1.8M4.2 4.2l1.3 1.3M12.8 4.2l-1.3 1.3"/><path d="M8 19h9a3.2 3.2 0 0 0 .3-6.4A4.6 4.6 0 0 0 8.4 13 3 3 0 0 0 8 19z"/>',
@@ -559,6 +527,28 @@
     return Math.max(0, Math.floor((longest - 1) / CONFIG.hoursAhead) * CONFIG.hoursAhead);
   }
 
+  function dataQuality(d, row) {
+    if (!d) return { labels: ['unavailable'], uncertain: true };
+    var labels = [];
+    var issued = Date.parse(d.updated);
+    var gridIssued = Date.parse(d.gridUpdated);
+    var stale = !isFinite(issued) || now - issued > CONFIG.staleForecastMs ||
+      (isFinite(gridIssued) && now - gridIssued > CONFIG.staleForecastMs) ||
+      !isFinite(d.fetchedAt) || now - d.fetchedAt > CONFIG.staleForecastMs;
+    var partial = d.degraded || !!(row && (row.humidity == null || row.dew == null || row.visibility == null));
+    if (stale) labels.push('stale forecast');
+    if (!d.fresh) labels.push('cached');
+    if (partial) labels.push('partial data');
+    return { labels: labels, uncertain: stale || partial };
+  }
+
+  function displayWalk(row, d) {
+    var score = walkScore(row);
+    var quality = dataQuality(d, row);
+    if (score.level !== 'no' && quality.uncertain) return { level: 'unknown', reason: quality.labels.join(', ') };
+    return score;
+  }
+
   function renderCards() {
     var wrap = document.getElementById('cards');
     wrap.innerHTML = '';
@@ -566,19 +556,12 @@
 
     LOCATIONS.forEach(function (loc) {
       var row = currentRow(loc);
-      var card = el('article', 'card');
+      var card = el('article', 'card' + (loc.id === BASELINE ? ' card-home' : ''));
       card.dataset.loc = loc.id;
-      if (row) {
-        // Same driver as the matrix cells, at lower strength: a card is a large
-        // area, and large areas need less chroma than small marks to read as
-        // the same intensity.
-        if (row.sun == null) card.classList.add('sun-unknown');
-        else if (row.sun <= 0.005) card.classList.add('night');
-        else card.style.setProperty('--sun', (sunTint(row.sun) * CARD_TINT).toFixed(3));
-      }
 
       var head = el('div', 'card-head');
       head.appendChild(el('h3', null, loc.name));
+      if (loc.id === BASELINE) head.appendChild(el('span', 'home-label', 'Your starting point'));
       var sub = el('p', 'sub');
       var cell = cells[loc.id];
       sub.textContent = loc.detail;
@@ -616,12 +599,14 @@
 
       var cond = el('p', 'cond');
       cond.appendChild(skyIcon(row));
-      cond.appendChild(el('span', null, row.text || '—'));
+      var description = row.text || 'Conditions unavailable';
+      if (row.gust != null && row.gust >= CONFIG.walk.gustGood && !/gust/i.test(description)) {
+        description += ' · Gusts ' + row.gust + ' mph';
+      }
+      cond.appendChild(el('span', null, description));
       card.appendChild(cond);
 
       var facts = [];
-      facts.push(row.sun == null ? 'sun unknown'
-        : row.sun <= 0.005 ? 'after dark' : Math.round(row.sun * 100) + '% sun');
       if (row.cloud != null) facts.push(row.cloud + '% cloud');
       if (row.gust != null && row.wind != null && row.gust > row.wind + 4) facts.push('gust ' + row.gust);
       if (row.pop != null) facts.push('rain ' + row.pop + '%');
@@ -629,29 +614,16 @@
       if (row.dew != null) facts.push('dew ' + row.dew + '°');
       card.appendChild(el('p', 'facts', facts.join('  ·  ')));
 
+      var quality = dataQuality(data[loc.id], row);
+      if (quality.labels.length) card.appendChild(el('p', 'card-data-note', quality.labels.join(' · ')));
+
       var foot = el('div', 'card-foot');
       var link = el('a', null, 'full NWS ›');
       link.href = 'https://forecast.weather.gov/MapClick.php?lon=' + loc.lon + '&lat=' + loc.lat;
       link.target = '_blank';
       link.rel = 'noreferrer';
       link.setAttribute('aria-label', 'Full NWS forecast for ' + loc.name);
-      var status = el('span', 'card-status');
-      var d2 = data[loc.id];
-      // Only speak up when something is wrong. A normal issue time is noise.
-      if (!d2.fresh) {
-        status.textContent = 'cached ' + clockLabel(d2.fetchedAt);
-        status.classList.add('warn');
-      } else if (now - Date.parse(d2.updated) > CONFIG.staleForecastMs) {
-        status.textContent = 'forecast is stale';
-        status.classList.add('warn');
-      } else if (d2.degraded) {
-        status.textContent = 'partial data';
-        status.classList.add('warn');
-      } else {
-        status.textContent = '';
-        status.title = 'NWS issued this forecast at ' + clockLabel(Date.parse(d2.updated));
-      }
-      foot.appendChild(status);
+      foot.title = 'NWS issued ' + dateLabel(Date.parse(data[loc.id].updated)) + ' at ' + clockLabel(Date.parse(data[loc.id].updated));
       foot.appendChild(link);
       card.appendChild(foot);
       wrap.appendChild(card);
@@ -688,6 +660,13 @@
     hours.forEach(function (h, i) {
       var th = el('th', null, hourLabel(h));
       th.scope = 'col';
+      if (sample[i].day === false) {
+        th.classList.add('night-hour');
+        var moon = el('span', 'night-mark', '☾');
+        moon.setAttribute('aria-hidden', 'true');
+        th.appendChild(moon);
+        th.appendChild(el('span', 'sr-only', ' after dark'));
+      }
       // Only the first column of the unpaged window is actually "now".
       if (matrixOffset === 0 && i === 0) th.classList.add('now-col');
       // Mark only the column where the date rolls over. The range label above
@@ -701,7 +680,6 @@
     table.appendChild(thead);
 
     var tbody = el('tbody');
-    detailRows = {};
 
     // Baseline temperature per hour, so every other cell can carry its delta.
     var baseByHour = {};
@@ -713,24 +691,28 @@
       var byHour = {};
       rows.forEach(function (r) { byHour[hourKey(r.at)] = r; });
       var tr = el('tr');
+      if (loc.id === BASELINE) tr.classList.add('home-row');
       var th = el('th', 'rowhead');
       th.scope = 'row';
       // Both forms ship; CSS picks one, since a media query cannot swap text.
       th.appendChild(el('span', 'full', loc.name));
       th.appendChild(el('span', 'abbr', loc.short || loc.name));
       th.appendChild(el('small', null, loc.detail));
+      var flags = [];
+      rows.forEach(function (r) {
+        dataQuality(data[loc.id], r).labels.forEach(function (label) {
+          if (flags.indexOf(label) < 0) flags.push(label);
+        });
+      });
+      if (flags.length) th.appendChild(el('span', 'row-quality', flags.join(' · ')));
       tr.appendChild(th);
       hours.forEach(function (h, ci) {
         var row = byHour[hourKey(h)];
         var td = el('td', 'cell');
         if (matrixOffset === 0 && ci === 0) td.classList.add('now-col');
         if (!row) { td.textContent = '—'; td.className = 'cell empty-cell'; tr.appendChild(td); return; }
-        var key = loc.id + '|' + hourKey(h);
-        detailRows[key] = { loc: loc, row: row };
-        td.dataset.k = key;
-        td.style.setProperty('--sun', sunTint(row.sun).toFixed(3));
-        if (row.sun != null && row.sun <= 0.005) td.classList.add('night');
-        if (row.sun == null) td.classList.add('sun-unknown');
+        var walk = displayWalk(row, data[loc.id]);
+        td.classList.add('walk-' + (walk.tone || walk.level));
 
         var top = el('div', 'cell-top');
         top.appendChild(el('strong', null, row.temp + '°'));
@@ -742,17 +724,14 @@
           top.appendChild(dl);
         }
         td.appendChild(top);
-        td.appendChild(windDisc(row));
 
         var tip = [hourLabel(row.at), row.temp + '°F',
-          row.sun == null ? 'sun unknown' : row.sun <= 0.005 ? 'after dark' : Math.round(row.sun * 100) + '% sun',
           row.cloud != null ? row.cloud + '% cloud' : null,
           row.wind != null ? row.wind + ' mph ' + (row.dirText || compass(row.dirDeg)) : 'wind unknown',
           row.pop != null ? 'rain ' + row.pop + '%' : null,
-          'walk: ' + row.walk.level + (row.walk.reason ? ' (' + row.walk.reason + ')' : ''),
+          'walk: ' + walk.level + (walk.reason ? ' (' + walk.reason + ')' : ''),
           row.text].filter(Boolean).join(' · ');
         td.title = tip;
-        if (key === detailKey) td.classList.add('picked');
         td.appendChild(el('span', 'sr-only', tip));
         tr.appendChild(td);
       });
@@ -761,68 +740,6 @@
     table.appendChild(tbody);
     host.appendChild(table);
     renderPager(hours);
-  }
-
-  /* Every number in a matrix cell also lives in its title attribute, which a
-     touch screen can never surface. Tapping a cell puts the same detail in a
-     panel under the grid, so nothing is desktop-only. */
-  function showDetail(key) {
-    var host = document.getElementById('detail');
-    var entry = detailRows[key];
-    if (!entry) { hideDetail(); return; }
-    detailKey = key;
-    var row = entry.row, loc = entry.loc;
-    host.innerHTML = '';
-
-    var head = el('div', 'detail-head');
-    head.appendChild(el('strong', null, loc.name));
-    head.appendChild(el('span', 'detail-when', hourLabel(row.at) + ' · ' + dateLabel(row.at)));
-    var close = el('button', 'detail-close', '×');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Close detail');
-    close.addEventListener('click', hideDetail);
-    head.appendChild(close);
-    host.appendChild(head);
-
-    var verdict = el('p', 'detail-verdict');
-    var dot = el('span', 'key-dot key-' + row.walk.level);
-    verdict.appendChild(dot);
-    verdict.appendChild(el('span', null,
-      row.walk.level === 'good' ? 'Good for a walk'
-        : row.walk.level === 'marginal' ? 'Marginal: ' + row.walk.reason
-        : row.walk.level === 'no' ? 'No: ' + row.walk.reason
-        : 'Unknown: ' + row.walk.reason));
-    host.appendChild(verdict);
-
-    var pairs = [
-      ['Temperature', row.temp + '°F'],
-      ['Conditions', row.text || '—'],
-      ['Sun', row.sun == null ? 'unknown'
-        : row.sun <= 0.005 ? 'after dark' : Math.round(row.sun * 100) + '%'],
-      ['Cloud', row.cloud == null ? 'unknown' : row.cloud + '%'],
-      ['Wind', row.wind == null ? 'unknown'
-        : row.wind + ' mph ' + (row.dirText || compass(row.dirDeg)) +
-          (row.gust != null && row.gust > row.wind + 4 ? ', gusting ' + row.gust : '')],
-      ['Humidity', row.humidity == null ? 'unknown' : row.humidity + '%'],
-      ['Dewpoint', row.dew == null ? 'unknown' : row.dew + '°F'],
-      ['Rain', row.pop == null ? 'unknown' : row.pop + '%']
-    ];
-    var dl = el('dl', 'detail-grid');
-    pairs.forEach(function (p) {
-      dl.appendChild(el('dt', null, p[0]));
-      dl.appendChild(el('dd', null, p[1]));
-    });
-    host.appendChild(dl);
-    host.hidden = false;
-  }
-
-  function hideDetail() {
-    detailKey = null;
-    var host = document.getElementById('detail');
-    host.hidden = true;
-    host.innerHTML = '';
-    var picked = document.querySelector('.cell.picked');
-    if (picked) picked.classList.remove('picked');
   }
 
   function renderPager(hours) {
@@ -848,7 +765,6 @@
   function pageMatrix(delta) {
     var cap = maxOffset();
     matrixOffset = Math.min(cap, Math.max(0, matrixOffset + delta * CONFIG.hoursAhead));
-    hideDetail();
     renderMatrix();
   }
 
@@ -860,29 +776,25 @@
     if (loading) out.textContent = 'Checking NWS…';
     else if (failed.length) out.textContent = failed.length + ' of ' + LOCATIONS.length +
       ' locations had trouble refreshing. Everything available is shown.';
-    else if (lastChecked) out.textContent = 'Checked ' + clockLabel(lastChecked) +
+    else if (lastChecked) out.textContent = 'Last checked ' + clockLabel(lastChecked) +
       ' · refreshes every ' + Math.round(CONFIG.refreshMs / 60000) + ' minutes';
     else out.textContent = 'Waiting for NWS';
+    if (!loading) {
+      var issues = LOCATIONS.map(function (loc) { return data[loc.id] && Date.parse(data[loc.id].updated); })
+        .filter(function (value) { return typeof value === 'number' && isFinite(value); });
+      if (issues.length) {
+        var oldest = Math.min.apply(null, issues);
+        out.textContent += ' · Oldest NWS forecast issued ' + dateLabel(oldest) + ' at ' + clockLabel(oldest);
+      }
+    }
     document.getElementById('refresh').disabled = loading;
     document.getElementById('refresh').classList.toggle('spinning', loading);
-  }
-
-  function renderLegend() {
-    var sun = document.getElementById('legend-sun');
-    if (sun.childNodes.length) return;   // static, build once
-    [0, 0.18, 0.42, 0.68, 1].forEach(function (v) {
-      var sw = el('span', 'sw');
-      if (v === 0) { sw.classList.add('sw-night'); sw.title = 'after dark'; }
-      else { sw.style.setProperty('--sun', sunTint(v).toFixed(3)); sw.title = Math.round(v * 100) + '% sun'; }
-      sun.appendChild(sw);
+    var notices = LOCATIONS.filter(function (loc) {
+      return dataQuality(data[loc.id], currentRow(loc)).labels.length;
     });
-    var wind = document.getElementById('legend-wind');
-    var parts = CONFIG.windBands.map(function (b, i) {
-      var lo = i === 0 ? 0 : CONFIG.windBands[i - 1].under;
-      var span = b.under === Infinity ? lo + '+' : (i === 0 ? 'under ' + b.under : lo + '–' + (b.under - 1));
-      return b.label + ' ' + span;
-    });
-    wind.textContent = parts.join(' · ');
+    var notice = document.getElementById('data-quality');
+    notice.hidden = loading || !notices.length;
+    notice.textContent = notices.length ? 'Some forecasts are cached, incomplete or stale. Affected locations are marked; gray means the walking verdict is uncertain.' : '';
   }
 
   function renderThresholds() {
@@ -893,10 +805,14 @@
       ['Good', 'Every factor in range: ' + W.tempGood[0] + '–' + W.tempGood[1] + '°F, wind under ' +
         W.windGood + ' mph, rain under ' + W.popGood + '%, humidity under ' + W.humidGood +
         '%, and at least ' + W.spreadGood + '° of dewpoint spread.'],
-      ['Marginal', 'One factor outside the good band but none disqualifying.'],
+      ['Yellow — marginal', 'One concern outside the good band but none disqualifying.'],
+      ['Orange — multiple concerns', 'Two or more distinct concerns outside the good band, but none disqualifying. Humidity and dewpoint count together as dampness.'],
       ['No', 'Any single disqualifier: below ' + W.tempOk[0] + '°F or above ' + W.tempOk[1] +
         '°F, wind ' + W.windMax + ' mph or more, rain ' + W.popMax + '% or more, humidity ' +
         W.humidMax + '% or more, or visibility under ' + (W.visMin / 1000) + ' km.'],
+      ['Gusts', 'A separate comfort rule: marginal at ' + W.gustGood + ' mph and no at ' + W.gustMax + ' mph.'],
+      ['Forecast wording', 'Thunderstorm or severe-storm wording, ice or hail, and rain without a chance qualifier rule an hour out. Possible rain, drizzle, snow and fog add a concern. Original likelihood wording is preserved. Smoke, haze or dust mean air quality is not assessed and the verdict is unknown unless another known factor already rules it out.'],
+      ['Data quality', 'Forecasts or cached data older than ' + (CONFIG.staleForecastMs / 3600000) + ' hours, unavailable supplementary data, or missing humidity, dewpoint or visibility make the verdict unknown. A known disqualifier stays red.'],
       ['Unknown', 'An input is missing and nothing known already rules the hour out. A known ' +
         'disqualifier always wins over a missing input, so gaps in the data can never upgrade an hour.']
     ];
@@ -909,7 +825,6 @@
   }
 
   function render() {
-    renderLegend();
     renderThresholds();
     renderCards();
     renderMatrix();
@@ -924,16 +839,6 @@
   function syncKey() { document.getElementById('key').open = wide.matches; }
   wide.addEventListener('change', syncKey);
   syncKey();
-
-  document.getElementById('matrix').addEventListener('click', function (e) {
-    var td = e.target.closest ? e.target.closest('td.cell') : null;
-    if (!td || !td.dataset.k) return;
-    if (td.dataset.k === detailKey) { hideDetail(); return; }
-    var prev = document.querySelector('.cell.picked');
-    if (prev) prev.classList.remove('picked');
-    td.classList.add('picked');
-    showDetail(td.dataset.k);
-  });
 
   /* On a phone the cards collapse to one row each; tapping one opens its
      detail rather than sending you to a second screen. */

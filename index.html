@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="description" content="Side-by-side National Weather Service forecasts for several points across San Francisco's west side.">
   <title>Sunset Weather</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260909-2">
 </head>
 <body>
 <div class="wrap">
@@ -21,18 +21,10 @@
     <summary>Key</summary>
     <div class="legend">
       <div class="grp">
-        <span>Sun</span>
-        <div class="swatches" id="legend-sun"></div>
-        <span>after dark to full sun</span>
-      </div>
-      <div class="grp">
-        <span>Wind mph</span>
-        <span id="legend-wind"></span>
-      </div>
-      <div class="grp">
         <span>Walk</span>
         <span class="key-dot key-good"></span><span>good</span>
         <span class="key-dot key-marginal"></span><span>marginal</span>
+        <span class="key-dot key-caution"></span><span>multiple concerns</span>
         <span class="key-dot key-no"></span><span>no</span>
         <span class="key-dot key-unknown"></span><span>unknown</span>
       </div>
@@ -53,12 +45,10 @@
         <button id="later" type="button">›</button>
       </div>
     </div>
-    <p class="section-note">Cell shade is sun reaching the ground. The small number beside each
-    temperature is the difference from Home. The circled number is wind in mph, and its color is
-    walkability.</p>
+    <p class="section-note">Cell color shows walking conditions, including wind.
+    Small numbers show the temperature difference from Home.</p>
+    <p class="data-quality" id="data-quality" role="status" hidden></p>
     <div class="matrix-scroll" id="matrix"></div>
-    <div class="detail" id="detail" role="region" aria-live="polite" aria-label="Selected hour" hidden></div>
-    <p class="tap-hint">Tap any cell for the full hour.</p>
   </section>
 
   <footer>
@@ -78,15 +68,12 @@
       location is resolved from its coordinates to a forecast grid cell roughly 2.5 km across.
       Two endpoints are used per location: the hourly forecast, which is human-adjusted by the
       local forecast office, and the raw gridpoint data for sky cover, gusts, humidity, dewpoint
-      and visibility. If the raw data fails, the page still works and the affected factors read
-      as unknown rather than being assumed fine.</p>
+      and visibility. If the raw data fails or required supplementary values are missing,
+      the affected walking verdicts read as unknown. A known disqualifier still stays red.</p>
       <p><strong>Grid cells are not permanent.</strong> NWS states that a coordinate's grid
       coordinates, and even its assigned office, can change. Cells are therefore resolved from
       coordinates once a day rather than hardcoded; if one moves, the change is logged to the
-      browser console and the card's subtitle updates.</p>
-      <p><strong>Sun</strong> is the sun's height in the sky at that hour and latitude, reduced
-      by cloud using the Kasten-Czeplak relation, so thin cloud barely dims and full overcast
-      still passes about a quarter of clear-sky light. It is not the same as sky cover.</p>
+      browser console and the card's subtitle tooltip updates.</p>
       <p><strong>These are forecasts, not measurements.</strong> There is no weather station at
       any of these points; the nearest official one sits well inland. Treat every number as what
       the forecast office expects for a 2.5 km square, not as a reading from that street corner.</p>
@@ -101,6 +88,6 @@
   </footer>
 
 </div>
-<script src="app.js"></script>
+<script src="app.js?v=20260909-2"></script>
 </body>
 </html>

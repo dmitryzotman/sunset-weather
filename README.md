@@ -41,7 +41,7 @@ var BASELINE = 'home';   // every temperature delta is measured against this one
 ```
 
 **Thresholds.** `CONFIG.walk` holds the walkability bands; `CONFIG.windBands`
-names the wind ranges used in the legend and tooltips. The "Walkability thresholds" disclosure at the
+names the wind ranges used in card tooltips. The "Walkability thresholds" disclosure at the
 bottom of the page is generated from these same values, so the documentation
 cannot drift away from the behavior.
 
@@ -51,38 +51,40 @@ object to change.
 
 ## What the display encodes
 
-Four variables, four separate channels, so none of them fight:
+The hourly grid prioritizes walking conditions:
 
 | Variable | Channel |
 |---|---|
-| Temperature | the large number |
-| Difference from the baseline | the small number beside it |
-| Sun reaching the ground | the background, pale to blue |
-| Wind | the number inside the disc |
-| Walkability | the color of that disc |
+| Temperature | the large number in each cell |
+| Difference from Home | the smaller signed number |
+| Walkability | the whole cell's background |
+| Wind | shown on cards and included in the walkability calculation |
 
-Cards and matrix cells share the same sun-driven background, so a card and its
-row read as the same thing at two sizes. The card's wash is scaled down, because
-a large area needs less chroma than a small mark to register as equally strong.
+Green means good, yellow means one marginal concern, orange means multiple
+distinct marginal concerns, and red means an existing disqualifier applies.
+Gray hatching means unknown or missing forecast data. Temperature, wind, rain,
+humidity, dewpoint and visibility cutoffs are unchanged. Humidity and dewpoint
+both describe dampness and count as one concern. A known disqualifier still
+wins over missing data. Gusts have separate thresholds: 25 mph is marginal,
+35 mph rules the hour out. Forecast wording also contributes: storms, ice/hail
+and rain without a chance qualifier rule an hour out; possible rain, drizzle,
+snow and fog add a concern. Smoke, haze and dust mean air quality is unassessed
+and the verdict is unknown unless another factor already rules the hour out.
+Repeated precipitation signals count as one concern.
 
-The page defaults to light rather than following `prefers-color-scheme`. Most of
-the information here is carried by a pale blue sun ramp, which holds up better on
-a light ground. The dark palette is still defined and applies to
-`<html data-theme="dark">`; point that selector back at a
-`@media (prefers-color-scheme: dark)` query to follow the system instead.
+Home is the visual anchor: a dark card, a larger desktop temperature and, on
+wide screens, a card spanning two columns. Other cards use neutral backgrounds.
+Sun percentages and brightness shading are removed; forecast descriptions and
+cloud cover remain. Light is the default; the existing dark theme remains
+available with `<html data-theme="dark">`.
 
-**Sun is not sky cover.** It's the sun's height in the sky at that hour and
-latitude, reduced by cloud using the Kasten-Czeplak relation, so thin cloud
-barely dims and full overcast still passes about a quarter of clear-sky light.
-Gray cells are hours when the sun is below the horizon. A clear winter morning
-and an overcast summer noon can land in the same place, which is the point.
-
-Wind gets no color scale of its own. An earlier version banded it by speed, and
-two competing hues per cell made the sun tint unreadable. In the matrix the wind
-number instead sits inside a disc colored by the hour's walkability, so a single
-mark carries the value you want and the verdict you are scanning for. The speed
-bands survive as words: the legend spells out which speeds count as calm, breezy,
-windy and too windy, and every tooltip names the band.
+Hourly cells are a read-only comparison, with no wind discs or tap detail panel.
+The existing hover descriptions and screen-reader text retain the forecast and
+rating reasons. On phones, the grid stays first and the compact current-condition
+cards still expand when tapped. The condition line keeps NWS wording and adds
+at most one gust qualifier. Icons distinguish day/night and use a neutral
+fallback for unfamiliar descriptions. A small moon in the hour header marks
+nighttime without changing the walking-comfort color.
 
 Locations are ordered nearest-to-farthest from `BASELINE`, computed at load
 rather than hand-sorted, so the ordering survives edits to the coordinates. Both
@@ -93,13 +95,6 @@ The matrix shows six hours at a time and pages forward and back by six. NWS
 hourly forecasts run about a week ahead, so paging keeps going until the data
 does. Change `CONFIG.hoursAhead` and the columns, the page size and the button
 labels all follow.
-
-Each card's walking verdict runs on its own horizon, to the end of today with a
-floor of `CONFIG.minOutlookHours`, rather than borrowing the matrix's window.
-They answer different questions: the matrix is what to compare right now, the
-card is when to go today. Of the good daylight stretches it finds, it reports the
-longest and breaks ties toward the earlier one, so a lone good hour cannot
-outrank a longer stretch later the same day.
 
 ## Grid cells are not permanent
 
@@ -125,16 +120,19 @@ human-adjusted product and already in Fahrenheit. The raw gridpoint payload is
 optional enrichment, supplying sky cover, gusts, humidity, dewpoint and
 visibility.
 
-If the optional call fails, the page still works. Sun shading drops out, the
-card is flagged "partial data", and fog detection falls back to matching the
-forecaster's own wording instead of humidity and visibility numbers. Coarser,
-but it beats going silent on the one condition that matters most here.
+If the optional call fails, the page still works. The card is flagged
+"partial data". The notice is visible even on collapsed mobile cards and next
+to the affected matrix row. Forecast text still contributes known concerns.
 
 Scoring is fail-safe by construction: a known disqualifying factor keeps an hour
 red even when another input is missing, and missing data can never upgrade an
-hour that something known has already ruled out. "Unknown" appears only when
-temperature, wind or precipitation is absent, since without those there is no
-verdict to give.
+hour that something known has already ruled out. Unknown also applies when
+the supplementary endpoint fails, humidity/dewpoint/visibility are missing, or
+forecast issuance or cached data age exceeds 12 hours. Original data remains
+visible, but an old or incomplete forecast cannot receive a confident green.
+Recent cached data may retain its verdict with an explicit cached label.
+The footer distinguishes last check time from the oldest NWS forecast issue
+time; card hover text shows the individual issue time.
 
 `api.weather.gov` returns intermittent 500s often enough to matter, so each
 request has a 12-second timeout and one retry, concurrent requests for the same
