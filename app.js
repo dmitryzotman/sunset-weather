@@ -88,7 +88,7 @@
 
   // ----------------------------------------------------------------- state --
 
-  var data = {};        // id -> { rows, updated, fetchedAt, fresh, degraded }
+  var data = {};        // id -> { rows, updated, fetchedAt, fresh }
   var failures = {};    // id -> error message
   var cells = {};       // id -> { office, x, y }
   var now = Date.now();
@@ -414,8 +414,7 @@
         rows: rows,
         updated: props.updateTime,
         gridUpdated: g && g.updateTime,
-        fetchedAt: Date.now(),
-        degraded: !g
+        fetchedAt: Date.now()
       };
       writeStore('fc.' + loc.id, payload);
       data[loc.id] = Object.assign({ fresh: true }, payload);
@@ -535,11 +534,9 @@
     var stale = !isFinite(issued) || now - issued > CONFIG.staleForecastMs ||
       (isFinite(gridIssued) && now - gridIssued > CONFIG.staleForecastMs) ||
       !isFinite(d.fetchedAt) || now - d.fetchedAt > CONFIG.staleForecastMs;
-    var partial = d.degraded || !!(row && (row.humidity == null || row.dew == null || row.visibility == null));
     if (stale) labels.push('stale forecast');
     if (!d.fresh) labels.push('cached');
-    if (partial) labels.push('partial data');
-    return { labels: labels, uncertain: stale || partial };
+    return { labels: labels, uncertain: stale };
   }
 
   function displayWalk(row, d) {
@@ -794,7 +791,7 @@
     });
     var notice = document.getElementById('data-quality');
     notice.hidden = loading || !notices.length;
-    notice.textContent = notices.length ? 'Some forecasts are cached, incomplete or stale. Affected locations are marked; gray means the walking verdict is uncertain.' : '';
+    notice.textContent = notices.length ? 'Some forecasts are cached, stale or unavailable. Affected locations are marked.' : '';
   }
 
   function renderThresholds() {
@@ -812,8 +809,8 @@
         W.humidMax + '% or more, or visibility under ' + (W.visMin / 1000) + ' km.'],
       ['Gusts', 'A separate comfort rule: marginal at ' + W.gustGood + ' mph and no at ' + W.gustMax + ' mph.'],
       ['Forecast wording', 'Thunderstorm or severe-storm wording, ice or hail, and rain without a chance qualifier rule an hour out. Possible rain, drizzle, snow and fog add a concern. Original likelihood wording is preserved. Smoke, haze or dust mean air quality is not assessed and the verdict is unknown unless another known factor already rules it out.'],
-      ['Data quality', 'Forecasts or cached data older than ' + (CONFIG.staleForecastMs / 3600000) + ' hours, unavailable supplementary data, or missing humidity, dewpoint or visibility make the verdict unknown. A known disqualifier stays red.'],
-      ['Unknown', 'An input is missing and nothing known already rules the hour out. A known ' +
+      ['Data quality', 'Forecasts or cached data older than ' + (CONFIG.staleForecastMs / 3600000) + ' hours make the verdict unknown. A known disqualifier stays red.'],
+      ['Unknown', 'Temperature, wind or rain probability is missing and nothing known already rules the hour out. A known ' +
         'disqualifier always wins over a missing input, so gaps in the data can never upgrade an hour.']
     ];
     lines.forEach(function (l) {

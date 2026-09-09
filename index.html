@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="description" content="Side-by-side National Weather Service forecasts for several points across San Francisco's west side.">
   <title>Sunset Weather</title>
-  <link rel="stylesheet" href="styles.css?v=20260909-2">
+  <link rel="stylesheet" href="styles.css?v=20260909-3">
 </head>
 <body>
 <div class="wrap">
@@ -68,8 +68,7 @@
       location is resolved from its coordinates to a forecast grid cell roughly 2.5 km across.
       Two endpoints are used per location: the hourly forecast, which is human-adjusted by the
       local forecast office, and the raw gridpoint data for sky cover, gusts, humidity, dewpoint
-      and visibility. If the raw data fails or required supplementary values are missing,
-      the affected walking verdicts read as unknown. A known disqualifier still stays red.</p>
+      and visibility. The walking verdict uses the available readings and forecast wording.</p>
       <p><strong>Grid cells are not permanent.</strong> NWS states that a coordinate's grid
       coordinates, and even its assigned office, can change. Cells are therefore resolved from
       coordinates once a day rather than hardcoded; if one moves, the change is logged to the
@@ -88,6 +87,6 @@
   </footer>
 
 </div>
-<script src="app.js?v=20260909-2"></script>
+<script src="app.js?v=20260909-3"></script>
 </body>
 </html>

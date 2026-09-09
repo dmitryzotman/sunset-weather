@@ -120,16 +120,16 @@ human-adjusted product and already in Fahrenheit. The raw gridpoint payload is
 optional enrichment, supplying sky cover, gusts, humidity, dewpoint and
 visibility.
 
-If the optional call fails, the page still works. The card is flagged
-"partial data". The notice is visible even on collapsed mobile cards and next
-to the affected matrix row. Forecast text still contributes known concerns.
+If the optional call fails, the page still works using available readings and
+forecast wording. Missing optional values do not add a notice or change the
+verdict to unknown on their own.
 
 Scoring is fail-safe by construction: a known disqualifying factor keeps an hour
 red even when another input is missing, and missing data can never upgrade an
-hour that something known has already ruled out. Unknown also applies when
-the supplementary endpoint fails, humidity/dewpoint/visibility are missing, or
-forecast issuance or cached data age exceeds 12 hours. Original data remains
-visible, but an old or incomplete forecast cannot receive a confident green.
+hour that something known has already ruled out. Unknown applies when a core
+input (temperature, wind or rain probability) is missing, or forecast issuance
+or cached data age exceeds 12 hours. Original data remains visible, but an old
+forecast cannot receive a confident green.
 Recent cached data may retain its verdict with an explicit cached label.
 The footer distinguishes last check time from the oldest NWS forecast issue
 time; card hover text shows the individual issue time.
