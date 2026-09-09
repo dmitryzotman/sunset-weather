@@ -87,9 +87,13 @@ button.spinning { color: var(--muted); }
 
 /* --------------------------------------------------------------- legend -- */
 
+/* The key is reference material. It stays open on a wide screen, and folds
+   away on a phone where it would otherwise push the grid below the fold. */
+.key { margin-bottom: 16px; }
+.key > summary { display: none; }
 .legend {
   display: flex; gap: 20px; flex-wrap: wrap; align-items: center;
-  margin-bottom: 16px; font-size: 11.5px; color: var(--muted);
+  font-size: 11.5px; color: var(--muted);
 }
 .legend .grp { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
 .swatches { display: flex; gap: 3px; }
@@ -124,18 +128,6 @@ button.spinning { color: var(--muted); }
 }
 @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
 
-/* On a phone the hour-by-hour grid is what you open the page for, so it comes
-   first. Explicit orders on every child, because a lone negative order would
-   also jump the section above the header and the key. */
-@media (max-width: 700px) {
-  .wrap { display: flex; flex-direction: column; }
-  .wrap > header        { order: 1; }
-  .wrap > .legend       { order: 2; }
-  .wrap > .hours-section { order: 3; }
-  .wrap > .cards-section { order: 4; margin-top: 6px; }
-  .wrap > footer        { order: 5; }
-}
-
 .card {
   background: color-mix(in srgb, var(--sky-full) calc(var(--sun, 0) * 100%), var(--panel));
   border: 1px solid var(--line); border-radius: var(--radius);
@@ -167,10 +159,6 @@ button.spinning { color: var(--muted); }
 .icon svg { width: 17px; height: 17px; display: block; }
 
 .facts { font-size: 12px; color: var(--muted); margin: 6px 0 0; font-variant-numeric: tabular-nums; line-height: 1.5; }
-
-.verdict { margin: 12px 0 0; font-size: 12.5px; display: flex; gap: 7px; flex-wrap: wrap; align-items: baseline; }
-.verdict-text { font-weight: 600; }
-.verdict-note { color: var(--muted); font-weight: 400; }
 
 .empty { min-height: 120px; display: flex; flex-direction: column; justify-content: center; }
 .empty .dash { font-size: 34px; color: var(--muted); line-height: 1; }
@@ -212,6 +200,9 @@ h2 { font-size: 14px; font-weight: 650; margin: 0; }
 .matrix .corner { font-size: 10.5px; font-weight: 500; color: var(--muted); }
 .matrix .rowhead span { display: block; font-size: 12px; font-weight: 600; }
 .matrix .rowhead small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+/* The abbreviated name exists for the phone layout only; on desktop the row is
+   wide enough for the real one, and showing both reads as a duplicate. */
+.matrix .rowhead .abbr { display: none; }
 
 .cell {
   border-radius: 8px; padding: 7px 4px 7px; vertical-align: top; min-width: 78px;
@@ -245,6 +236,39 @@ h2 { font-size: 14px; font-weight: 650; margin: 0; }
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent);
 }
 
+/* The hour you are actually standing in, and the one you tapped. Declared in
+   this order so a picked cell outranks the now marker. */
+.matrix thead th.now-col { color: var(--ink); font-weight: 700; }
+.cell.now-col { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.cell.picked { box-shadow: inset 0 0 0 2px var(--accent); }
+.cell[data-k] { cursor: pointer; }
+
+/* -------------------------------------------------------- detail panel -- */
+
+.detail {
+  margin-top: 10px; padding: 12px 14px 14px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow);
+}
+.detail-head { display: flex; align-items: baseline; gap: 9px; margin-bottom: 9px; }
+.detail-head strong { font-size: 13px; }
+.detail-when { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.detail-close {
+  margin-left: auto; min-height: 32px; min-width: 32px; padding: 0 8px;
+  font-size: 16px; line-height: 1; color: var(--muted);
+}
+.detail-verdict {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 11px;
+  font-size: 12.5px; font-weight: 600;
+}
+.detail-grid {
+  display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 5px 12px;
+  margin: 0; font-size: 12px;
+}
+.detail-grid dt { color: var(--muted); }
+.detail-grid dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+.tap-hint { display: none; }
+
 /* ---------------------------------------------------------------- notes -- */
 
 footer { margin-top: 22px; font-size: 11.5px; color: var(--muted); line-height: 1.65; max-width: 84ch; }
@@ -261,4 +285,71 @@ details p { margin: 7px 0; }
 footer code {
   font-size: 11px; background: var(--bg); padding: 1px 4px; border-radius: 3px;
   border: 1px solid var(--line);
+}
+
+/* --------------------------------------------------------------- mobile --
+   Last in the file on purpose: a media query adds no specificity, so these
+   have to come after the desktop rules they override. */
+
+/* On a phone the hour-by-hour grid is what you open the page for, so it comes
+   first. Explicit orders on every child, because a lone negative order would
+   also jump the section above the header and the key. */
+@media (max-width: 700px) {
+  .wrap { display: flex; flex-direction: column; }
+  .wrap > header        { order: 1; }
+  .wrap > .key          { order: 2; }
+  .wrap > .hours-section { order: 3; }
+  .wrap > .cards-section { order: 4; margin-top: 6px; }
+  .wrap > footer        { order: 5; }
+
+  /* The key folds behind a tap. Its summary is a primary control here, so it
+     gets a real touch target. */
+  .key { margin-bottom: 10px; }
+  .key > summary {
+    display: list-item; min-height: 44px; padding: 12px 0 10px;
+    font-size: 12.5px; font-weight: 600; color: var(--ink);
+  }
+  .key[open] > summary { margin-bottom: 4px; }
+  .legend { gap: 12px 16px; }
+
+  /* Fit six columns without horizontal scrolling: shorter row labels, no
+     sub-line, tighter spacing, and the delta stacked under the temperature. */
+  .matrix { min-width: 0; border-spacing: 3px; }
+  .matrix .corner, .matrix .rowhead { min-width: 76px; padding: 5px 4px 5px 7px; }
+  .matrix .rowhead .full { display: none; }
+  .matrix .rowhead .abbr { display: block; font-size: 11px; font-weight: 600; }
+  .matrix .rowhead small { display: none; }
+  .matrix thead th { font-size: 10px; padding: 8px 0 4px; }
+  .cell { min-width: 0; padding: 6px 1px; border-radius: 7px; }
+  .cell-top { display: block; }
+  .cell-top strong { display: block; font-size: 13px; }
+  .cell-delta { display: block; font-size: 9.5px; margin-top: 1px; }
+  .disc-wrap { margin-top: 4px; }
+  .disc { width: 20px; height: 20px; font-size: 10px; }
+
+  /* Seven full cards is four screens of scrolling. One row each, tap to open. */
+  .cards { gap: 8px; margin-bottom: 14px; }
+  .card {
+    display: grid; grid-template-columns: 1fr auto; align-items: center;
+    column-gap: 10px; padding: 9px 12px;
+  }
+  .card-head { grid-column: 1; }
+  .card .sub { display: none; }
+  .card-top { grid-column: 2; margin: 0; gap: 9px; }
+  .card .temp { font-size: 25px; }
+  .card .temp sup { font-size: .45em; top: -.5em; }
+  .card .cond, .card .facts, .card .card-foot { display: none; }
+  .card.open .sub { display: block; }
+  .card.open .cond { display: flex; grid-column: 1 / -1; }
+  .card.open .facts { display: block; grid-column: 1 / -1; }
+  .card.open .card-foot { display: flex; grid-column: 1 / -1; padding-top: 9px; }
+
+  /* Touch targets. 26px pager buttons were the main control on this screen. */
+  .pager button { min-height: 44px; min-width: 54px; font-size: 12.5px; }
+  #refresh { min-height: 44px; }
+  .section-head { gap: 10px; }
+  .range { min-width: 12ch; }
+
+  .detail-grid { grid-template-columns: auto 1fr; }
+  .tap-hint { display: block; font-size: 11px; color: var(--muted); margin: 8px 0 0; }
 }

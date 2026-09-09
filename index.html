@@ -17,24 +17,27 @@
     <button id="refresh" type="button">Refresh</button>
   </header>
 
-  <div class="legend">
-    <div class="grp">
-      <span>Sun</span>
-      <div class="swatches" id="legend-sun"></div>
-      <span>after dark to full sun</span>
+  <details id="key" class="key" open>
+    <summary>Key</summary>
+    <div class="legend">
+      <div class="grp">
+        <span>Sun</span>
+        <div class="swatches" id="legend-sun"></div>
+        <span>after dark to full sun</span>
+      </div>
+      <div class="grp">
+        <span>Wind mph</span>
+        <span id="legend-wind"></span>
+      </div>
+      <div class="grp">
+        <span>Walk</span>
+        <span class="key-dot key-good"></span><span>good</span>
+        <span class="key-dot key-marginal"></span><span>marginal</span>
+        <span class="key-dot key-no"></span><span>no</span>
+        <span class="key-dot key-unknown"></span><span>unknown</span>
+      </div>
     </div>
-    <div class="grp">
-      <span>Wind mph</span>
-      <span id="legend-wind"></span>
-    </div>
-    <div class="grp">
-      <span>Walk</span>
-      <span class="key-dot key-good"></span><span>good</span>
-      <span class="key-dot key-marginal"></span><span>marginal</span>
-      <span class="key-dot key-no"></span><span>no</span>
-      <span class="key-dot key-unknown"></span><span>unknown</span>
-    </div>
-  </div>
+  </details>
 
   <section class="cards-section" aria-labelledby="now-title">
     <h2 id="now-title" class="sr-only">Conditions right now</h2>
@@ -54,6 +57,8 @@
     temperature is the difference from Home. The circled number is wind in mph, and its color is
     walkability.</p>
     <div class="matrix-scroll" id="matrix"></div>
+    <div class="detail" id="detail" role="region" aria-live="polite" aria-label="Selected hour" hidden></div>
+    <p class="tap-hint">Tap any cell for the full hour.</p>
   </section>
 
   <footer>

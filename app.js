@@ -15,13 +15,13 @@
   /* Points to compare. Add or remove freely. The order written here does not
      matter: they are sorted by distance from BASELINE at load. */
   var LOCATIONS = [
-    { id: 'home',      name: 'Home',                  detail: 'Central Sunset',      lat: 37.7500, lon: -122.4780 },
-    { id: 'ggpinner',  name: 'GGP Inner',             detail: 'Inner Sunset',        lat: 37.7660, lon: -122.4760 },
-    { id: 'ggpouter',  name: 'GGP Outer',             detail: 'Lincoln at 43rd',     lat: 37.7646, lon: -122.4977 },
-    { id: 'obsunset',  name: 'Ocean Beach (Sunset)',  detail: 'Outer Sunset',        lat: 37.7470, lon: -122.5080 },
-    { id: 'obrich',    name: 'Ocean Beach (Richmond)',detail: 'Great Hwy at Balboa', lat: 37.7750, lon: -122.5100 },
-    { id: 'landsend',  name: 'Lands End',             detail: 'Point Lobos',         lat: 37.7797, lon: -122.5136 },
-    { id: 'baker',     name: 'Baker Beach',           detail: 'Presidio',            lat: 37.7936, lon: -122.4836 }
+    { id: 'home',      name: 'Home',                  short: 'Home',      detail: 'Central Sunset',      lat: 37.7500, lon: -122.4780 },
+    { id: 'ggpinner',  name: 'GGP Inner',             short: 'GGP In',    detail: 'Inner Sunset',        lat: 37.7660, lon: -122.4760 },
+    { id: 'ggpouter',  name: 'GGP Outer',             short: 'GGP Out',   detail: 'Lincoln at 43rd',     lat: 37.7646, lon: -122.4977 },
+    { id: 'obsunset',  name: 'Ocean Beach (Sunset)',  short: 'OB Sunset', detail: 'Outer Sunset',        lat: 37.7470, lon: -122.5080 },
+    { id: 'obrich',    name: 'Ocean Beach (Richmond)',short: 'OB Rich',   detail: 'Great Hwy at Balboa', lat: 37.7750, lon: -122.5100 },
+    { id: 'landsend',  name: 'Lands End',             short: 'Lands End', detail: 'Point Lobos',         lat: 37.7797, lon: -122.5136 },
+    { id: 'baker',     name: 'Baker Beach',           short: 'Baker',     detail: 'Presidio',            lat: 37.7936, lon: -122.4836 }
   ];
 
   /** Which location every temperature delta is measured against. */
@@ -54,7 +54,6 @@
     },
 
     hoursAhead:  6,           // columns in the comparison matrix
-    minOutlookHours: 8,       // card verdict never looks at less than this
     refreshMs:   15 * 60 * 1000,
     clockMs:     60 * 1000,
     gridTtlMs:   24 * 60 * 60 * 1000,  // NWS serves /points with a 24h max-age
@@ -97,6 +96,8 @@
   var loading = true;
   var inFlight = false;
   var matrixOffset = 0;   // hours forward from now, stepped in CONFIG.hoursAhead blocks
+  var detailRows = {};    // "locId|hourKey" -> { loc, row }, for the tap panel
+  var detailKey = null;   // which cell the panel is currently showing
 
   // ----------------------------------------------------------------- utils --
 
@@ -359,43 +360,6 @@
     return { level: 'good', reason: '' };
   }
 
-  /** Longest run of good daylight hours. Night hours are scored but never advised. */
-  function bestWindow(rows) {
-    var runs = [], cur = null, daylight = 0;
-    for (var i = 0; i < rows.length; i++) {
-      var ok = rows[i].walk.level === 'good' && rows[i].day;
-      if (rows[i].day) daylight++;
-      if (ok) { if (!cur) cur = { a: i, b: i }; cur.b = i; }
-      else if (cur) { runs.push(cur); cur = null; }
-    }
-    if (cur) runs.push(cur);
-    if (!runs.length) {
-      for (i = 0; i < rows.length; i++) {
-        if (rows[i].day && rows[i].walk.level === 'marginal') {
-          return { text: 'Nothing ideal', note: 'closest ' + hourLabel(rows[i].at) + ', ' + rows[i].walk.reason };
-        }
-      }
-      for (i = 0; i < rows.length; i++) {
-        if (rows[i].day && rows[i].walk.level === 'no') {
-          return { text: 'Not a walking day', note: rows[i].walk.reason };
-        }
-      }
-      // Everything left is 'unknown'. Say so rather than implying the weather is bad.
-      return { text: 'No verdict', note: 'missing forecast inputs' };
-    }
-    var covered = 0;
-    for (i = 0; i < runs.length; i++) covered += runs[i].b - runs[i].a + 1;
-    if (daylight && covered === daylight) return { text: 'Good all day', note: '' };
-    // Longest stretch wins, earliest breaks a tie. Picking the first run instead
-    // would let a single good hour beat a three-hour one later the same day.
-    var r = runs[0];
-    for (i = 1; i < runs.length; i++) {
-      if ((runs[i].b - runs[i].a) > (r.b - r.a)) r = runs[i];
-    }
-    var end = rows[r.b + 1] ? rows[r.b + 1].at : rows[r.b].at + 3600000;
-    return { text: 'Walk ' + hourLabel(rows[r.a].at) + ' to ' + hourLabel(end), note: '' };
-  }
-
   // ------------------------------------------------------------ assembling --
 
   /*
@@ -564,16 +528,14 @@
     return wrap;
   }
 
-  /* The card's outlook runs to the end of today, with a floor so a late-evening
-     load still has something to say. Deliberately not tied to the matrix window:
-     the matrix asks what to compare right now, the card asks when to go today. */
-  function outlook(loc) {
+  /** The row covering right now, or null. */
+  function currentRow(loc) {
     var d = data[loc.id];
-    if (!d) return [];
-    var midnight = new Date(now);
-    midnight.setHours(23, 59, 59, 999);
-    var horizon = Math.max(midnight.getTime(), now + CONFIG.minOutlookHours * 3600000);
-    return d.rows.filter(function (r) { return r.end > now && r.at <= horizon; });
+    if (!d) return null;
+    for (var i = 0; i < d.rows.length; i++) {
+      if (d.rows[i].end > now) return d.rows[i];
+    }
+    return null;
   }
 
   /** `count` hours of forecast beginning `offset` hours from now. */
@@ -600,14 +562,12 @@
   function renderCards() {
     var wrap = document.getElementById('cards');
     wrap.innerHTML = '';
-    var baseRow = null;
-    var baseLoc = data[BASELINE] && outlook({ id: BASELINE })[0];
-    if (baseLoc) baseRow = baseLoc;
+    var baseRow = data[BASELINE] ? currentRow({ id: BASELINE }) : null;
 
     LOCATIONS.forEach(function (loc) {
-      var rows = outlook(loc);
-      var row = rows[0];
+      var row = currentRow(loc);
       var card = el('article', 'card');
+      card.dataset.loc = loc.id;
       if (row) {
         // Same driver as the matrix cells, at lower strength: a card is a large
         // area, and large areas need less chroma than small marks to read as
@@ -669,12 +629,6 @@
       if (row.dew != null) facts.push('dew ' + row.dew + '°');
       card.appendChild(el('p', 'facts', facts.join('  ·  ')));
 
-      var win = bestWindow(rows);
-      var verdict = el('p', 'verdict');
-      verdict.appendChild(el('span', 'verdict-text', win.text));
-      if (win.note) verdict.appendChild(el('span', 'verdict-note', win.note));
-      card.appendChild(verdict);
-
       var foot = el('div', 'card-foot');
       var link = el('a', null, 'full NWS ›');
       link.href = 'https://forecast.weather.gov/MapClick.php?lon=' + loc.lon + '&lat=' + loc.lat;
@@ -734,6 +688,8 @@
     hours.forEach(function (h, i) {
       var th = el('th', null, hourLabel(h));
       th.scope = 'col';
+      // Only the first column of the unpaged window is actually "now".
+      if (matrixOffset === 0 && i === 0) th.classList.add('now-col');
       // Mark only the column where the date rolls over. The range label above
       // already names the days, so tagging every column was pure noise.
       if (i > 0 && dateLabel(h) !== dateLabel(hours[i - 1])) {
@@ -745,6 +701,7 @@
     table.appendChild(thead);
 
     var tbody = el('tbody');
+    detailRows = {};
 
     // Baseline temperature per hour, so every other cell can carry its delta.
     var baseByHour = {};
@@ -758,13 +715,19 @@
       var tr = el('tr');
       var th = el('th', 'rowhead');
       th.scope = 'row';
-      th.appendChild(el('span', null, loc.name));
+      // Both forms ship; CSS picks one, since a media query cannot swap text.
+      th.appendChild(el('span', 'full', loc.name));
+      th.appendChild(el('span', 'abbr', loc.short || loc.name));
       th.appendChild(el('small', null, loc.detail));
       tr.appendChild(th);
-      hours.forEach(function (h) {
+      hours.forEach(function (h, ci) {
         var row = byHour[hourKey(h)];
         var td = el('td', 'cell');
+        if (matrixOffset === 0 && ci === 0) td.classList.add('now-col');
         if (!row) { td.textContent = '—'; td.className = 'cell empty-cell'; tr.appendChild(td); return; }
+        var key = loc.id + '|' + hourKey(h);
+        detailRows[key] = { loc: loc, row: row };
+        td.dataset.k = key;
         td.style.setProperty('--sun', sunTint(row.sun).toFixed(3));
         if (row.sun != null && row.sun <= 0.005) td.classList.add('night');
         if (row.sun == null) td.classList.add('sun-unknown');
@@ -789,6 +752,7 @@
           'walk: ' + row.walk.level + (row.walk.reason ? ' (' + row.walk.reason + ')' : ''),
           row.text].filter(Boolean).join(' · ');
         td.title = tip;
+        if (key === detailKey) td.classList.add('picked');
         td.appendChild(el('span', 'sr-only', tip));
         tr.appendChild(td);
       });
@@ -797,6 +761,68 @@
     table.appendChild(tbody);
     host.appendChild(table);
     renderPager(hours);
+  }
+
+  /* Every number in a matrix cell also lives in its title attribute, which a
+     touch screen can never surface. Tapping a cell puts the same detail in a
+     panel under the grid, so nothing is desktop-only. */
+  function showDetail(key) {
+    var host = document.getElementById('detail');
+    var entry = detailRows[key];
+    if (!entry) { hideDetail(); return; }
+    detailKey = key;
+    var row = entry.row, loc = entry.loc;
+    host.innerHTML = '';
+
+    var head = el('div', 'detail-head');
+    head.appendChild(el('strong', null, loc.name));
+    head.appendChild(el('span', 'detail-when', hourLabel(row.at) + ' · ' + dateLabel(row.at)));
+    var close = el('button', 'detail-close', '×');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Close detail');
+    close.addEventListener('click', hideDetail);
+    head.appendChild(close);
+    host.appendChild(head);
+
+    var verdict = el('p', 'detail-verdict');
+    var dot = el('span', 'key-dot key-' + row.walk.level);
+    verdict.appendChild(dot);
+    verdict.appendChild(el('span', null,
+      row.walk.level === 'good' ? 'Good for a walk'
+        : row.walk.level === 'marginal' ? 'Marginal: ' + row.walk.reason
+        : row.walk.level === 'no' ? 'No: ' + row.walk.reason
+        : 'Unknown: ' + row.walk.reason));
+    host.appendChild(verdict);
+
+    var pairs = [
+      ['Temperature', row.temp + '°F'],
+      ['Conditions', row.text || '—'],
+      ['Sun', row.sun == null ? 'unknown'
+        : row.sun <= 0.005 ? 'after dark' : Math.round(row.sun * 100) + '%'],
+      ['Cloud', row.cloud == null ? 'unknown' : row.cloud + '%'],
+      ['Wind', row.wind == null ? 'unknown'
+        : row.wind + ' mph ' + (row.dirText || compass(row.dirDeg)) +
+          (row.gust != null && row.gust > row.wind + 4 ? ', gusting ' + row.gust : '')],
+      ['Humidity', row.humidity == null ? 'unknown' : row.humidity + '%'],
+      ['Dewpoint', row.dew == null ? 'unknown' : row.dew + '°F'],
+      ['Rain', row.pop == null ? 'unknown' : row.pop + '%']
+    ];
+    var dl = el('dl', 'detail-grid');
+    pairs.forEach(function (p) {
+      dl.appendChild(el('dt', null, p[0]));
+      dl.appendChild(el('dd', null, p[1]));
+    });
+    host.appendChild(dl);
+    host.hidden = false;
+  }
+
+  function hideDetail() {
+    detailKey = null;
+    var host = document.getElementById('detail');
+    host.hidden = true;
+    host.innerHTML = '';
+    var picked = document.querySelector('.cell.picked');
+    if (picked) picked.classList.remove('picked');
   }
 
   function renderPager(hours) {
@@ -822,6 +848,7 @@
   function pageMatrix(delta) {
     var cap = maxOffset();
     matrixOffset = Math.min(cap, Math.max(0, matrixOffset + delta * CONFIG.hoursAhead));
+    hideDetail();
     renderMatrix();
   }
 
@@ -890,6 +917,31 @@
   }
 
   // ------------------------------------------------------------------ boot --
+
+  /* The key is reference material: open on a wide screen, folded away on a
+     phone where it would otherwise sit between the header and the grid. */
+  var wide = window.matchMedia('(min-width: 701px)');
+  function syncKey() { document.getElementById('key').open = wide.matches; }
+  wide.addEventListener('change', syncKey);
+  syncKey();
+
+  document.getElementById('matrix').addEventListener('click', function (e) {
+    var td = e.target.closest ? e.target.closest('td.cell') : null;
+    if (!td || !td.dataset.k) return;
+    if (td.dataset.k === detailKey) { hideDetail(); return; }
+    var prev = document.querySelector('.cell.picked');
+    if (prev) prev.classList.remove('picked');
+    td.classList.add('picked');
+    showDetail(td.dataset.k);
+  });
+
+  /* On a phone the cards collapse to one row each; tapping one opens its
+     detail rather than sending you to a second screen. */
+  document.getElementById('cards').addEventListener('click', function (e) {
+    var card = e.target.closest ? e.target.closest('.card') : null;
+    if (!card || e.target.closest('a')) return;
+    card.classList.toggle('open');
+  });
 
   document.getElementById('refresh').addEventListener('click', function () { refresh('reload'); });
   document.getElementById('earlier').addEventListener('click', function () { pageMatrix(-1); });
