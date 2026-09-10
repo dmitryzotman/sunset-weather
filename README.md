@@ -63,15 +63,24 @@ The hourly grid prioritizes walking conditions:
 
 Green means good, yellow means one marginal concern, orange means multiple
 distinct marginal concerns, and red means an existing disqualifier applies.
-Gray hatching means unknown or missing forecast data. Temperature, wind, rain,
-humidity, dewpoint and visibility cutoffs are unchanged. Humidity and dewpoint
-both describe dampness and count as one concern. A known disqualifier still
-wins over missing data. Gusts have separate thresholds: 25 mph is marginal,
-35 mph rules the hour out. Forecast wording also contributes: storms, ice/hail
-and rain without a chance qualifier rule an hour out; possible rain, drizzle,
-snow and fog add a concern. Smoke, haze and dust mean air quality is unassessed
-and the verdict is unknown unless another factor already rules the hour out.
-Repeated precipitation signals count as one concern.
+Gray hatching means unknown or missing forecast data. Temperature and wind keep
+their existing comfort bands. Gusts have separate thresholds: 25 mph is marginal
+and 35 mph rules the hour out. Rain probability is marginal from 15% and rules
+the hour out at 60%.
+
+Relative humidity remains visible on the cards but no longer affects the rating
+by itself. Less than 4°F between temperature and dewpoint adds one mild dampness
+concern. Visibility below 3 km adds a fog concern; only visibility below 0.5 km
+rules the hour out. A known disqualifier still wins over missing data.
+
+Forecast wording also contributes. Storms, ice or hail, definite rain, and
+definite or substantial snow rule an hour out. Chance, possible, isolated or
+scattered rain; drizzle; light or possible snow; and ordinary fog add a concern.
+Dense or freezing fog rules the hour out. Smoke, haze and dust mean air quality
+is unassessed and the verdict is unknown unless another factor already rules the
+hour out. Wind and gusts count once, precipitation signals count once, and fog
+signals count once. A dampness concern is suppressed when rain or fog already
+describes the moisture.
 
 Good cells have no cause icons. Other cells show only the applicable issue:
 cold, heat, wind or gusts, rain or drizzle, dampness, fog or low visibility,
@@ -132,11 +141,11 @@ forecast wording. Missing optional values do not add a notice or change the
 verdict to unknown on their own.
 
 Scoring is fail-safe by construction: a known disqualifying factor keeps an hour
-red even when another input is missing, and missing data can never upgrade an
-hour that something known has already ruled out. Unknown applies when a core
-input (temperature, wind or rain probability) is missing, or forecast issuance
-or cached data age exceeds 12 hours. Original data remains visible, but an old
-forecast cannot receive a confident green.
+red when another input is missing, and missing data can never upgrade an hour
+that something known has already ruled out. Unknown applies when a core input
+(temperature, wind or rain probability) is missing. Forecast issuance or cached
+data age beyond 12 hours also makes the result unknown, because an expired red
+forecast is no longer current evidence. Original data remains visible.
 Recent cached data may retain its verdict with an explicit cached label.
 The footer distinguishes last check time from the oldest NWS forecast issue
 time; card hover text shows the individual issue time.

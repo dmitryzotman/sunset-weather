@@ -48,11 +48,10 @@
       gustGood:   25,         // mph gusts; separate from sustained-wind limits
       gustMax:    35,
       popGood:    15,         // % chance of precipitation
-      popMax:     30,
-      humidGood:  85,         // % relative humidity
-      humidMax:   92,
+      popMax:     60,
       spreadGood: 4,          // degF dewpoint depression; small spread means damp air
-      visMin:     3000        // meters; below this is fog, not haze
+      visGood:    3000,       // meters; below this adds a fog concern
+      visNo:      500         // meters; dense enough to rule the hour out
     },
 
     hoursAhead:  6,           // columns in the comparison matrix
@@ -260,9 +259,17 @@
     if (/thunder|tornado|hurricane|tropical storm|blizzard/.test(t)) return { icon: 'storm', risk: 2, reason: 'storm risk' };
     if (/freezing rain|freezing drizzle|ice pellets|sleet|hail/.test(t)) return { icon: 'ice', risk: 2, reason: 'ice or hail risk' };
     if (/smoke|haze|dust|sand/.test(t)) return { icon: 'haze', uncertain: true, reason: 'air quality not assessed' };
-    if (/snow|flurr/.test(t)) return { icon: 'snow', risk: 1, reason: 'snow' };
+    if (/snow|flurr/.test(t)) return {
+      icon: 'snow',
+      risk: /flurr|light snow|chance|possible|isolated|scattered/.test(t) ? 1 : 2,
+      reason: 'snow'
+    };
     if (/drizzle/.test(t)) return { icon: 'rain', risk: 1, reason: 'drizzle' };
-    if (/rain|shower/.test(t)) return { icon: 'rain', risk: /chance|possible/.test(t) ? 1 : 2, reason: 'rain' };
+    if (/rain|shower/.test(t)) return {
+      icon: 'rain',
+      risk: /chance|possible|isolated|scattered/.test(t) ? 1 : 2,
+      reason: 'rain'
+    };
     if (/fog|mist/.test(t)) return { icon: 'fog', risk: /dense|freezing/.test(t) ? 2 : 1, reason: 'fog' };
     if (/partly|mostly sunny|few clouds/.test(t)) return { icon: row.day === false ? 'partly-night' : 'partly' };
     if (/cloud|overcast/.test(t)) return { icon: 'cloud' };
@@ -301,35 +308,40 @@
 
     if (row.pop == null) core.push([null, 'rain']);
     else if (row.pop >= W.popMax) core.push([2, 'rain']);
-    else if (row.pop >= W.popGood) core.push([1, 'drizzle']);
+    else if (row.pop >= W.popGood) core.push([1, 'rain']);
     else core.push([0, 'rain']);
 
-    if (row.humidity != null) {
-      soft.push([row.humidity >= W.humidMax ? 2 : row.humidity >= W.humidGood ? 1 : 0, 'damp']);
-    }
+    // Relative humidity is displayed on the cards but is not a comfort verdict:
+    // cool coastal air can have very high RH without being wet or unpleasant.
     if (row.temp != null && row.dew != null) {
       soft.push([(row.temp - row.dew) < W.spreadGood ? 1 : 0, 'damp']);
     }
-    // With the gridpoint payload unavailable there is no humidity or dewpoint, so
-    // the forecaster's own wording is the only fog signal left. Coarser, but it
-    // beats going silent on the one condition that matters most here.
-    if (row.humidity == null && row.dew == null) {
-      var text = row.text || '';
-      if (/fog|mist/i.test(text)) soft.push([2, 'fogged in']);
-      else if (/drizzle/i.test(text)) soft.push([1, 'drizzle']);
+    // Ordinary reduced visibility is a concern. Reserve red for dense visibility;
+    // forecast wording independently handles ordinary versus dense/freezing fog.
+    if (row.visibility != null) {
+      if (row.visibility < W.visNo) soft.push([2, 'fogged in']);
+      else if (row.visibility < W.visGood) soft.push([1, 'fog']);
     }
-    // Absent visibility is not evidence of clear air, so only score it when present.
-    if (row.visibility != null && row.visibility < W.visMin) soft.push([2, 'fogged in']);
 
     // Visibility is the most decisive damp signal, so let it name the reason when
     // several soft factors would all condemn the same hour.
     soft.sort(function (a, b) { return (b[1] === 'fogged in') - (a[1] === 'fogged in'); });
     var all = core.concat(soft), i;
-    var blockers = [];
-    for (i = 0; i < all.length; i++) {
-      if (all[i][0] === 2 && blockers.indexOf(all[i][1]) === -1) blockers.push(all[i][1]);
+    function family(reason) {
+      if (reason === 'too windy' || reason === 'gusts') return 'wind';
+      if (reason === 'drizzle') return 'rain';
+      if (reason === 'fogged in') return 'fog';
+      return reason;
     }
-    if (blockers.length) return { level: 'no', reason: blockers[0], issues: blockers };
+    var blockers = [], blockerFamilies = [];
+    for (i = 0; i < all.length; i++) {
+      var blockerFamily = family(all[i][1]);
+      if (all[i][0] === 2 && blockerFamilies.indexOf(blockerFamily) === -1) {
+        blockers.push(all[i][1]);
+        blockerFamilies.push(blockerFamily);
+      }
+    }
+    if (blockers.length) return { level: 'no', reason: blockers[0], issues: blockerFamilies };
     if (condition.uncertain) return {
       level: 'unknown', reason: condition.reason, issues: [condition.reason]
     };
@@ -338,13 +350,16 @@
         level: 'unknown', reason: 'no ' + core[i][1] + ' data', issues: []
       };
     }
-    // Yellow and orange share the existing marginal band. Count distinct
-    // concerns, so humidity and dewpoint do not count dampness twice.
+    // Yellow and orange share the existing marginal band. Count related signals
+    // once, and suppress dampness when rain or fog already explains the moisture.
     var concerns = [];
     all.forEach(function (factor) {
-      var concern = factor[1] === 'drizzle' ? 'rain' : factor[1];
+      var concern = family(factor[1]);
       if (factor[0] === 1 && concerns.indexOf(concern) === -1) concerns.push(concern);
     });
+    if (concerns.indexOf('rain') !== -1 || concerns.indexOf('fog') !== -1) {
+      concerns = concerns.filter(function (concern) { return concern !== 'damp'; });
+    }
     if (concerns.length) return {
       level: 'marginal', reason: concerns.join(', '),
       tone: concerns.length > 1 ? 'caution' : 'marginal', issues: concerns
@@ -635,7 +650,7 @@
   function displayWalk(row, d) {
     var score = walkScore(row);
     var quality = dataQuality(d, row);
-    if (score.level !== 'no' && quality.uncertain) return {
+    if (quality.uncertain) return {
       level: 'unknown', reason: quality.labels.join(', '), issues: []
     };
     return score;
@@ -900,17 +915,17 @@
     var host = document.getElementById('thresholds');
     if (host.childNodes.length) return;
     var lines = [
-      ['Good', 'Every factor in range: ' + W.tempGood[0] + '–' + W.tempGood[1] + '°F, wind under ' +
-        W.windGood + ' mph, rain under ' + W.popGood + '%, humidity under ' + W.humidGood +
-        '%, and at least ' + W.spreadGood + '° of dewpoint spread.'],
+      ['Good', 'Every required factor in range: ' + W.tempGood[0] + '–' + W.tempGood[1] + '°F, wind under ' +
+        W.windGood + ' mph and rain under ' + W.popGood + '%, with no available damp or fog concern.'],
       ['Yellow — marginal', 'One concern outside the good band but none disqualifying.'],
-      ['Orange — multiple concerns', 'Two or more distinct concerns outside the good band, but none disqualifying. Humidity and dewpoint count together as dampness.'],
+      ['Orange — multiple concerns', 'Two or more distinct concerns outside the good band, but none disqualifying. Wind and gusts count once; rain signals count once; fog signals count once. Dampness is suppressed when rain or fog already applies.'],
       ['No', 'Any single disqualifier: below ' + W.tempOk[0] + '°F or above ' + W.tempOk[1] +
-        '°F, wind ' + W.windMax + ' mph or more, rain ' + W.popMax + '% or more, humidity ' +
-        W.humidMax + '% or more, or visibility under ' + (W.visMin / 1000) + ' km.'],
+        '°F, wind ' + W.windMax + ' mph or more, rain ' + W.popMax + '% or more, or visibility under ' +
+        (W.visNo / 1000) + ' km.'],
       ['Gusts', 'A separate comfort rule: marginal at ' + W.gustGood + ' mph and no at ' + W.gustMax + ' mph.'],
-      ['Forecast wording', 'Thunderstorm or severe-storm wording, ice or hail, and rain without a chance qualifier rule an hour out. Possible rain, drizzle, snow and fog add a concern. Original likelihood wording is preserved. Smoke, haze or dust mean air quality is not assessed and the verdict is unknown unless another known factor already rules it out.'],
-      ['Data quality', 'Forecasts or cached data older than ' + (CONFIG.staleForecastMs / 3600000) + ' hours make the verdict unknown. A known disqualifier stays red.'],
+      ['Damp and fog', 'Relative humidity is displayed but not rated. Less than ' + W.spreadGood + '° of dewpoint spread adds one damp concern. Visibility below ' + (W.visGood / 1000) + ' km adds a fog concern and below ' + (W.visNo / 1000) + ' km rules the hour out.'],
+      ['Forecast wording', 'Thunderstorms, severe storms, ice or hail, definite rain, and definite or substantial snow rule an hour out. Chance, possible, isolated or scattered rain; drizzle; flurries or light/chance snow; and ordinary fog add a concern. Dense or freezing fog rules the hour out. Smoke, haze or dust mean air quality is not assessed unless another known factor already rules the hour out.'],
+      ['Data quality', 'Forecasts or cached data older than ' + (CONFIG.staleForecastMs / 3600000) + ' hours make the verdict unknown because an expired red finding is not current evidence.'],
       ['Unknown', 'Temperature, wind or rain probability is missing and nothing known already rules the hour out. A known ' +
         'disqualifier always wins over a missing input, so gaps in the data can never upgrade an hour.']
     ];
