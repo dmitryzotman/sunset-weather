@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Beta layout: the whole walkable day across several points on San Francisco's west side, from National Weather Service forecasts.">
+  <title>Sunset Weather · beta</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="beta-bar" role="note">
+    <span class="beta-tag">beta</span>
+    <span>You are on the new layout. Nothing here is saved or shared; the old one is untouched.</span>
+    <a href="../">Back to the current version ›</a>
+  </div>
+
+  <header>
+    <h1>Sunset Weather</h1>
+    <span class="stamp" id="stamp">loading</span>
+    <button id="refresh" type="button">Refresh</button>
+  </header>
+
+  <details id="key" class="key" open>
+    <summary>Key</summary>
+    <div class="legend">
+      <div class="grp">
+        <span>Walk</span>
+        <span class="key-dot key-good"></span><span>good</span>
+        <span class="key-dot key-marginal"></span><span>OK</span>
+        <span class="key-dot key-caution"></span><span>borderline</span>
+        <span class="key-dot key-no"></span><span>no</span>
+        <span class="key-dot key-unknown"></span><span>unknown</span>
+      </div>
+      <div class="grp">
+        <span>Hours</span>
+        <span class="key-dot key-past"></span><span>already past</span>
+        <span class="key-dot key-night"></span><span>after dark</span>
+      </div>
+    </div>
+  </details>
+
+  <section class="strip-section" aria-labelledby="strip-title">
+    <div class="section-head">
+      <h2 id="strip-title">The whole day</h2>
+    </div>
+    <p class="section-note">6am to 9pm, one block an hour, color only. Rows read nearest to
+    farthest from Home. The band underneath marks sunrise and sunset, computed from each point's coordinates. Hover a block for the hour,
+    the temperature and the reason.</p>
+    <div class="strip" id="strip"></div>
+  </section>
+
+  <section class="hours-section" aria-labelledby="matrix-title">
+    <div class="section-head">
+      <h2 id="matrix-title">Next hours</h2>
+    </div>
+    <p class="section-note">Temperature, and the difference from Home below it. Cell color is the
+    same walking verdict as the strip. <span class="cell-cached-key">◦</span> marks an hour whose
+    forecast is cached or stale.</p>
+    <p class="data-quality" id="data-quality" role="status" hidden></p>
+    <div class="matrix-scroll" id="matrix"></div>
+  </section>
+
+  <footer>
+    <output id="status" aria-live="polite">Waiting for NWS</output>
+
+    <details>
+      <summary>Walkability thresholds</summary>
+      <div id="thresholds"></div>
+      <p>All of these live in the <code>CONFIG.walk</code> object at the top of
+      <code>app.js</code>. Change them there; this list is generated from the same values,
+      so it cannot drift out of date.</p>
+    </details>
+
+    <p class="repo"><strong>These are forecasts, not measurements.</strong> There is no weather
+    station at any of these points. Every number is what the forecast office expects for a 2.5 km
+    square, not a reading from that street corner.
+    <a href="https://github.com/dmitryzotman/sunset-weather" target="_blank" rel="noreferrer">Method
+    and source on GitHub</a>.</p>
+  </footer>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>

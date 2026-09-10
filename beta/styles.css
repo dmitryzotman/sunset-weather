@@ -1,0 +1,203 @@
+/* Beta layout. Shared chrome (header, key, matrix skeleton, footer) comes from
+   the root stylesheet; only the new pieces live here. The root stylesheet is the
+   live page's, unmodified, so this file also carries the few tokens and rules
+   the beta render layer needs that the current page has no use for. */
+@import url("../styles.css");
+
+/* ------------------------------------------------------ beta-only tokens -- */
+
+:root {
+  --walk-good: var(--good);
+  --walk-marginal: var(--warning);
+  --walk-caution: var(--serious);
+  --walk-no: var(--critical);
+  --walk-unknown: #e7e6e2;
+  --on-good: #1c1b19;
+  --on-warning: #1c1b19;
+  --home-bg: #213b50;
+}
+:root[data-theme="dark"] { --walk-unknown: #343736; }
+
+/* The current page tints a cell by sun and puts the verdict in a small disc.
+   The beta drops the disc and paints the whole cell instead, so these override
+   the imported .cell rules. */
+.matrix td.cell { padding: 12px 5px; vertical-align: middle; }
+.cell.walk-good     { background: var(--walk-good); color: var(--on-good); }
+.cell.walk-marginal { background: var(--walk-marginal); color: var(--on-warning); }
+.cell.walk-caution  { background: var(--walk-caution); color: var(--on-serious); }
+.cell.walk-no       { background: var(--walk-no); color: var(--on-critical); }
+.cell.walk-good .cell-delta,
+.cell.walk-marginal .cell-delta,
+.cell.walk-caution .cell-delta,
+.cell.walk-no .cell-delta { color: currentColor; }
+.cell.walk-unknown, .cell.empty-cell {
+  background: repeating-linear-gradient(135deg,
+    var(--walk-unknown) 0 4px, var(--panel) 4px 8px);
+}
+.cell.now-col { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ink) 22%, transparent); }
+.matrix .cell-top strong { font-size: 17px; }
+.matrix .cell-delta { font-size: 12px; color: var(--ink); opacity: .8; }
+.matrix .home-row .rowhead { border-left: 3px solid var(--home-bg); }
+.matrix .rowhead .row-quality {
+  display: block; font-size: 11px; font-weight: 500; color: var(--warn); margin-top: 3px;
+}
+.data-quality { margin: 0 0 10px; font-size: 12px; color: var(--warn); }
+.key-caution { background: var(--serious); }
+
+.beta-bar {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin: 0 0 1.25rem;
+  padding: .55rem .75rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: .85rem;
+}
+.beta-bar a { margin-left: auto; }
+.beta-tag {
+  font: 600 .65rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  padding: .3rem .4rem;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ------------------------------------------------------------- day strip -- */
+
+.strip-section { margin: 0 0 1.75rem; }
+.strip {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  padding: .75rem .85rem .85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.strip-row {
+  display: grid;
+  grid-template-columns: 10.5rem minmax(0, 1fr);
+  gap: .9rem;
+  align-items: center;
+  padding: 0 .35rem;
+  border-radius: 3px;
+}
+.strip-label { min-width: 0; padding: .2rem 0; }
+.strip-name {
+  display: block;
+  font-size: .85rem;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.strip-home .strip-name { font-weight: 600; }
+.strip-label small {
+  display: block;
+  font-size: .72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.strip-track {
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 2px;
+}
+.strip-axis { padding-bottom: .1rem; }
+.strip-tick {
+  text-align: center;
+  font: 400 .62rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+.block { height: 1.5rem; border-radius: 2px; background: var(--walk-unknown); }
+.b-good     { background: var(--walk-good); }
+.b-marginal { background: var(--walk-marginal); }
+.b-caution  { background: var(--walk-caution); }
+.b-no       { background: var(--walk-no); }
+.b-unknown,
+.b-missing  {
+  background: repeating-linear-gradient(135deg,
+    var(--walk-unknown) 0 4px, var(--panel) 4px 8px);
+}
+/* Night is carried by the band below the strip, not by dimming the verdict
+   colors — a 6% filter is invisible and the color is the thing being read. */
+.b-past {
+  background: color-mix(in srgb, var(--ink) 10%, var(--panel));
+}
+.b-now      { box-shadow: inset 0 0 0 2px var(--ink); }
+
+.cell { position: relative; }
+.cell-cached {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font: 600 .7rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: currentColor;
+}
+.cell-cached-key {
+  font: 600 .8rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 700px) {
+  .strip-row { grid-template-columns: 7rem minmax(0, 1fr); gap: .5rem; }
+  .strip-name { font-size: .78rem; }
+  .strip-label small { display: none; }
+  .block { height: 1.35rem; }
+  .strip-tick { font-size: .55rem; }
+  .beta-bar { font-size: .8rem; }
+  .beta-bar a { margin-left: 0; }
+}
+
+/* Home is the anchor, as on the current page. */
+.strip-home { background: color-mix(in srgb, var(--line) 45%, transparent); }
+
+/* --------------------------------------------- daylight scale under strip -- */
+
+.strip-scale { margin-top: .3rem; }
+.strip-scale-label {
+  text-align: right;
+  font-size: .68rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* Daylight is the default fill, so the row reads as one continuous track that
+   darkens after sunset rather than three floating fragments. */
+.scale-cell {
+  height: .85rem;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--warn) 14%, var(--panel));
+}
+.scale-night { background: color-mix(in srgb, var(--ink) 32%, var(--panel)); }
+.scale-dusk {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--ink) 6%, var(--panel)) 0 45%,
+    color-mix(in srgb, var(--ink) 32%, var(--panel)) 55% 100%);
+  box-shadow: inset -2px 0 0 var(--warn);
+}
+.scale-dawn {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--ink) 32%, var(--panel)) 0 45%,
+    color-mix(in srgb, var(--ink) 6%, var(--panel)) 55% 100%);
+  box-shadow: inset 2px 0 0 var(--warn);
+}
+.scale-now { box-shadow: inset 0 -4px 0 var(--ink); }
+
+@media (max-width: 700px) {
+  .strip-scale-label { font-size: .6rem; }
+  .scale-cell { height: .6rem; }
+}
+
+.key-past,
+.key-night { border: 1px solid color-mix(in srgb, var(--ink) 30%, var(--panel)); }
+.key-past { background: color-mix(in srgb, var(--ink) 10%, var(--panel)); }
+.key-night { background: color-mix(in srgb, var(--ink) 32%, var(--panel)); }
+.legend .grp { flex-wrap: nowrap; white-space: nowrap; }
