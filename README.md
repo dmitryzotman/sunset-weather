@@ -68,9 +68,8 @@ their existing comfort bands. Gusts have separate thresholds: 25 mph is marginal
 and 35 mph rules the hour out. Rain probability is marginal from 15% and rules
 the hour out at 60%.
 
-Relative humidity remains visible on the cards but no longer affects the rating
-by itself. Less than 4°F between temperature and dewpoint adds one mild dampness
-concern. Visibility below 3 km adds a fog concern; only visibility below 0.5 km
+Relative humidity and dewpoint remain visible on the cards but do not affect the
+rating. Visibility below 3 km adds a fog concern; only visibility below 0.5 km
 rules the hour out. A known disqualifier still wins over missing data.
 
 Forecast wording also contributes. Storms, ice or hail, definite rain, and
@@ -79,11 +78,10 @@ scattered rain; drizzle; light or possible snow; and ordinary fog add a concern.
 Dense or freezing fog rules the hour out. Smoke, haze and dust mean air quality
 is unassessed and the verdict is unknown unless another factor already rules the
 hour out. Wind and gusts count once, precipitation signals count once, and fog
-signals count once. A dampness concern is suppressed when rain or fog already
-describes the moisture.
+signals count once.
 
 Good cells have no cause icons. Other cells show only the applicable issue:
-cold, heat, wind or gusts, rain or drizzle, dampness, fog or low visibility,
+cold, heat, wind or gusts, rain or drizzle, fog or low visibility,
 snow, storms, ice or hail, and smoke or haze. Multiple distinct concerns can
 appear together. Unknown cells caused only by missing or stale data remain
 hatched without an issue icon.
