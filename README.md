@@ -58,6 +58,7 @@ The hourly grid prioritizes walking conditions:
 | Temperature | the large number in each cell |
 | Difference from Home | the smaller signed number |
 | Walkability | the whole cell's background |
+| Reasons an hour is not good | small cause icons below the temperature |
 | Wind | shown on cards and included in the walkability calculation |
 
 Green means good, yellow means one marginal concern, orange means multiple
@@ -71,6 +72,12 @@ and rain without a chance qualifier rule an hour out; possible rain, drizzle,
 snow and fog add a concern. Smoke, haze and dust mean air quality is unassessed
 and the verdict is unknown unless another factor already rules the hour out.
 Repeated precipitation signals count as one concern.
+
+Good cells have no cause icons. Other cells show only the applicable issue:
+cold, heat, wind or gusts, rain or drizzle, dampness, fog or low visibility,
+snow, storms, ice or hail, and smoke or haze. Multiple distinct concerns can
+appear together. Unknown cells caused only by missing or stale data remain
+hatched without an issue icon.
 
 Home is the visual anchor: a dark card, a larger desktop temperature and, on
 wide screens, a card spanning two columns. Other cards use neutral backgrounds.

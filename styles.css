@@ -97,6 +97,9 @@ button.spinning { color: var(--muted); }
   font-size: 11.5px; color: var(--muted);
 }
 .legend .grp { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.issue-key { row-gap: 5px; }
+.issue-key-item { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.issue-key-item svg { width: 14px; height: 14px; display: block; color: var(--ink); }
 /* Wind is a plain number on cards; the grid color includes its effect. */
 .wind {
   font-variant-numeric: tabular-nums; font-size: 11px; color: var(--muted);
@@ -235,6 +238,12 @@ h2 { font-size: 14px; font-weight: 650; margin: 0; }
 .cell-top { display: flex; align-items: baseline; justify-content: center; gap: 4px; }
 .cell-top strong { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .cell-delta { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink); opacity: .8; }
+.cell-issues {
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  min-height: 14px; margin-top: 4px; color: var(--ink); opacity: .82;
+}
+.cell-issue { display: inline-flex; width: 14px; height: 14px; }
+.cell-issue svg { width: 100%; height: 100%; display: block; }
 .matrix .home-row .rowhead { border-left: 3px solid var(--home-bg); }
 .empty-cell { color: var(--muted); font-size: 12px; padding-top: 14px; }
 
@@ -297,6 +306,8 @@ footer code {
   .cell-top { display: block; }
   .cell-top strong { display: block; font-size: 15px; }
   .cell-delta { display: block; font-size: 12px; margin-top: 1px; }
+  .cell-issues { min-height: 13px; margin-top: 3px; gap: 2px; }
+  .cell-issue { width: 13px; height: 13px; }
 
   /* Seven full cards is four screens of scrolling. One row each, tap to open. */
   .cards { gap: 8px; margin-bottom: 14px; }

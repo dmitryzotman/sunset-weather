@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="description" content="Side-by-side National Weather Service forecasts for several points across San Francisco's west side.">
   <title>Sunset Weather</title>
-  <link rel="stylesheet" href="styles.css?v=20260910-2">
+  <link rel="stylesheet" href="styles.css?v=20260910-3">
 </head>
 <body>
 <div class="wrap">
@@ -34,6 +34,9 @@
         <span class="key-dot key-no"></span><span>no</span>
         <span class="key-dot key-unknown"></span><span>unknown</span>
       </div>
+      <div class="grp issue-key" id="issue-key">
+        <span>Issues</span>
+      </div>
     </div>
   </details>
 
@@ -51,8 +54,8 @@
         <button id="later" type="button">›</button>
       </div>
     </div>
-    <p class="section-note">Cell color shows walking conditions, including wind.
-    Small numbers show the temperature difference from Home.</p>
+    <p class="section-note">Color shows walking conditions. Icons show issues; good hours
+    have none. Small numbers compare with Home.</p>
     <p class="data-quality" id="data-quality" role="status" hidden></p>
     <div class="matrix-scroll" id="matrix"></div>
   </section>
@@ -93,6 +96,6 @@
   </footer>
 
 </div>
-<script src="app.js?v=20260909-3"></script>
+<script src="app.js?v=20260910-4"></script>
 </body>
 </html>

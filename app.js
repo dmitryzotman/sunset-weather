@@ -325,12 +325,18 @@
     // several soft factors would all condemn the same hour.
     soft.sort(function (a, b) { return (b[1] === 'fogged in') - (a[1] === 'fogged in'); });
     var all = core.concat(soft), i;
+    var blockers = [];
     for (i = 0; i < all.length; i++) {
-      if (all[i][0] === 2) return { level: 'no', reason: all[i][1] };
+      if (all[i][0] === 2 && blockers.indexOf(all[i][1]) === -1) blockers.push(all[i][1]);
     }
-    if (condition.uncertain) return { level: 'unknown', reason: condition.reason };
+    if (blockers.length) return { level: 'no', reason: blockers[0], issues: blockers };
+    if (condition.uncertain) return {
+      level: 'unknown', reason: condition.reason, issues: [condition.reason]
+    };
     for (i = 0; i < core.length; i++) {
-      if (core[i][0] === null) return { level: 'unknown', reason: 'no ' + core[i][1] + ' data' };
+      if (core[i][0] === null) return {
+        level: 'unknown', reason: 'no ' + core[i][1] + ' data', issues: []
+      };
     }
     // Yellow and orange share the existing marginal band. Count distinct
     // concerns, so humidity and dewpoint do not count dampness twice.
@@ -341,9 +347,9 @@
     });
     if (concerns.length) return {
       level: 'marginal', reason: concerns.join(', '),
-      tone: concerns.length > 1 ? 'caution' : 'marginal'
+      tone: concerns.length > 1 ? 'caution' : 'marginal', issues: concerns
     };
-    return { level: 'good', reason: '' };
+    return { level: 'good', reason: '', issues: [] };
   }
 
   // ------------------------------------------------------------ assembling --
@@ -495,6 +501,93 @@
     return wrap;
   }
 
+  /* Cause-only glyphs for the hourly grid. Color continues to carry severity;
+     these icons answer the separate question of what is holding an hour back. */
+  var WALK_ISSUE_ICONS = {
+    cold: {
+      label: 'cold',
+      path: '<path d="M14 14.5V5a3 3 0 0 0-6 0v9.5a5 5 0 1 0 6 0zM11 8v8"/><path d="M3 8v7m-2-2 2 2 2-2"/>'
+    },
+    heat: {
+      label: 'heat',
+      path: '<path d="M14 14.5V5a3 3 0 0 0-6 0v9.5a5 5 0 1 0 6 0zM11 8v8"/><path d="M3 15V8m-2 2 2-2 2 2"/>'
+    },
+    wind: {
+      label: 'wind',
+      path: '<path d="M3 7h10c2.5 0 2.5-3.5 0-3.5M3 12h16c2.5 0 2.5 3.5 0 3.5M3 17h9"/>'
+    },
+    rain: {
+      label: 'rain',
+      path: '<path d="M6.5 14h11a3 3 0 0 0 0-6 4.5 4.5 0 0 0-8.7-1 3.5 3.5 0 0 0-2.3 7zM8 17l-1 3M12.5 17l-1 3M17 17l-1 3"/>'
+    },
+    damp: {
+      label: 'damp',
+      path: '<path d="M12 3S6.5 9.6 6.5 14a5.5 5.5 0 0 0 11 0C17.5 9.6 12 3 12 3z"/>'
+    },
+    fog: {
+      label: 'fog',
+      path: '<path d="M5 10h11a3 3 0 0 0 0-6 4.5 4.5 0 0 0-8.6 1A3 3 0 0 0 5 10zM3 14h18M5 18h14M8 22h8"/>'
+    },
+    snow: {
+      label: 'snow',
+      path: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/>'
+    },
+    storm: {
+      label: 'storm',
+      path: '<path d="M6.5 13h11a3 3 0 0 0 0-6 4.5 4.5 0 0 0-8.7-1 3.5 3.5 0 0 0-2.3 7zM13 14l-3 4h3l-1 3"/>'
+    },
+    ice: {
+      label: 'ice or hail',
+      path: '<path d="M6.5 13h11a3 3 0 0 0 0-6 4.5 4.5 0 0 0-8.7-1 3.5 3.5 0 0 0-2.3 7z"/><circle cx="8" cy="18" r="1"/><circle cx="13" cy="20" r="1"/><circle cx="18" cy="17" r="1"/>'
+    },
+    air: {
+      label: 'smoke or haze',
+      path: '<circle cx="12" cy="12" r="8"/><circle cx="8" cy="10" r=".8" fill="currentColor" stroke="none"/><circle cx="14" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="16" cy="14" r=".8" fill="currentColor" stroke="none"/><circle cx="10" cy="16" r=".8" fill="currentColor" stroke="none"/>'
+    }
+  };
+
+  function walkIssueIcon(name, includeLabel) {
+    var info = WALK_ISSUE_ICONS[name];
+    if (!info) return null;
+    var wrap = el('span', includeLabel ? 'issue-key-item' : 'cell-issue');
+    wrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + info.path + '</svg>';
+    if (includeLabel) wrap.appendChild(el('span', null, info.label));
+    else wrap.setAttribute('aria-hidden', 'true');
+    return wrap;
+  }
+
+  function walkIssueNames(row, walk) {
+    if (!walk || walk.level === 'good') return [];
+    var reasons = walk.issues || (walk.reason ? walk.reason.split(', ') : []);
+    var names = [];
+    reasons.forEach(function (reason) {
+      var name = null;
+      if (reason === 'temp' && row.temp != null) {
+        if (row.temp < CONFIG.walk.tempGood[0]) name = 'cold';
+        else if (row.temp > CONFIG.walk.tempGood[1]) name = 'heat';
+      } else if (reason === 'wind' || reason === 'too windy' || reason === 'gusts') name = 'wind';
+      else if (reason === 'rain' || reason === 'drizzle') name = 'rain';
+      else if (reason === 'damp') name = 'damp';
+      else if (reason === 'fog' || reason === 'fogged in') name = 'fog';
+      else if (reason === 'snow') name = 'snow';
+      else if (reason === 'storm risk') name = 'storm';
+      else if (reason === 'ice or hail risk') name = 'ice';
+      else if (reason === 'air quality not assessed') name = 'air';
+      if (name && names.indexOf(name) === -1) names.push(name);
+    });
+    return names;
+  }
+
+  function renderIssueKey() {
+    var host = document.getElementById('issue-key');
+    if (!host || host.dataset.rendered) return;
+    host.dataset.rendered = 'true';
+    ['cold', 'heat', 'wind', 'rain', 'damp', 'fog', 'snow', 'storm', 'ice', 'air'].forEach(function (name) {
+      host.appendChild(walkIssueIcon(name, true));
+    });
+  }
+
   /** The row covering right now, or null. */
   function currentRow(loc) {
     var d = data[loc.id];
@@ -542,7 +635,9 @@
   function displayWalk(row, d) {
     var score = walkScore(row);
     var quality = dataQuality(d, row);
-    if (score.level !== 'no' && quality.uncertain) return { level: 'unknown', reason: quality.labels.join(', ') };
+    if (score.level !== 'no' && quality.uncertain) return {
+      level: 'unknown', reason: quality.labels.join(', '), issues: []
+    };
     return score;
   }
 
@@ -722,6 +817,12 @@
         }
         td.appendChild(top);
 
+        var issueRow = el('div', 'cell-issues');
+        walkIssueNames(row, walk).forEach(function (name) {
+          issueRow.appendChild(walkIssueIcon(name, false));
+        });
+        td.appendChild(issueRow);
+
         var tip = [hourLabel(row.at), row.temp + '°F',
           row.cloud != null ? row.cloud + '% cloud' : null,
           row.wind != null ? row.wind + ' mph ' + (row.dirText || compass(row.dirDeg)) : 'wind unknown',
@@ -822,6 +923,7 @@
   }
 
   function render() {
+    renderIssueKey();
     renderThresholds();
     renderCards();
     renderMatrix();
