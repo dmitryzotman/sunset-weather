@@ -69,12 +69,13 @@ and 35 mph rules the hour out. Rain probability is marginal from 15% and rules
 the hour out at 60%.
 
 Relative humidity and dewpoint remain visible on the cards but do not affect the
-rating. Visibility below 3 km adds a fog concern; only visibility below 0.5 km
-rules the hour out. A known disqualifier still wins over missing data.
+rating. Cloud cover and ordinary fog or mist do not lower the rating by themselves.
+Visibility below 1 km adds a fog concern; only visibility below 0.5 km rules the
+hour out. A known disqualifier still wins over missing data.
 
 Forecast wording also contributes. Storms, ice or hail, definite rain, and
 definite or substantial snow rule an hour out. Chance, possible, isolated or
-scattered rain; drizzle; light or possible snow; and ordinary fog add a concern.
+scattered rain; drizzle; and light or possible snow add a concern.
 Dense or freezing fog rules the hour out. Smoke, haze and dust mean air quality
 is unassessed and the verdict is unknown unless another factor already rules the
 hour out. Wind and gusts count once, precipitation signals count once, and fog

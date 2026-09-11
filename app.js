@@ -49,7 +49,7 @@
       gustMax:    35,
       popGood:    15,         // % chance of precipitation
       popMax:     60,
-      visGood:    3000,       // meters; below this adds a fog concern
+      visGood:    1000,       // meters; below this adds a fog concern
       visNo:      500         // meters; dense enough to rule the hour out
     },
 
@@ -269,7 +269,8 @@
       risk: /chance|possible|isolated|scattered/.test(t) ? 1 : 2,
       reason: 'rain'
     };
-    if (/fog|mist/.test(t)) return { icon: 'fog', risk: /dense|freezing/.test(t) ? 2 : 1, reason: 'fog' };
+    // Ordinary fog or mist can still be comfortable for a walk.
+    if (/fog|mist/.test(t)) return { icon: 'fog', risk: /dense|freezing/.test(t) ? 2 : 0, reason: 'fog' };
     if (/partly|mostly sunny|few clouds/.test(t)) return { icon: row.day === false ? 'partly-night' : 'partly' };
     if (/cloud|overcast/.test(t)) return { icon: 'cloud' };
     if (/sunny|clear|fair/.test(t)) return { icon: row.day === false ? 'moon' : 'sun' };
@@ -310,8 +311,8 @@
     else if (row.pop >= W.popGood) core.push([1, 'rain']);
     else core.push([0, 'rain']);
 
-    // Ordinary reduced visibility is a concern. Reserve red for dense visibility;
-    // forecast wording independently handles ordinary versus dense/freezing fog.
+    // Light fog is neutral; shorter visibility adds a concern. Dense or freezing
+    // fog in the forecast wording remains disqualifying regardless of visibility.
     if (row.visibility != null) {
       if (row.visibility < W.visNo) soft.push([2, 'fogged in']);
       else if (row.visibility < W.visGood) soft.push([1, 'fog']);
@@ -908,8 +909,8 @@
         '°F, wind ' + W.windMax + ' mph or more, rain ' + W.popMax + '% or more, or visibility under ' +
         (W.visNo / 1000) + ' km.'],
       ['Gusts', 'A separate comfort rule: marginal at ' + W.gustGood + ' mph and no at ' + W.gustMax + ' mph.'],
-      ['Humidity and fog', 'Relative humidity and dewpoint are displayed but not rated. Visibility below ' + (W.visGood / 1000) + ' km adds a fog concern and below ' + (W.visNo / 1000) + ' km rules the hour out.'],
-      ['Forecast wording', 'Thunderstorms, severe storms, ice or hail, definite rain, and definite or substantial snow rule an hour out. Chance, possible, isolated or scattered rain; drizzle; flurries or light/chance snow; and ordinary fog add a concern. Dense or freezing fog rules the hour out. Smoke, haze or dust mean air quality is not assessed unless another known factor already rules the hour out.'],
+      ['Humidity and fog', 'Relative humidity and dewpoint are displayed but not rated. Cloud cover and ordinary fog or mist do not lower the rating by themselves. Visibility below ' + (W.visGood / 1000) + ' km adds a fog concern and below ' + (W.visNo / 1000) + ' km rules the hour out.'],
+      ['Forecast wording', 'Thunderstorms, severe storms, ice or hail, definite rain, and definite or substantial snow rule an hour out. Chance, possible, isolated or scattered rain; drizzle; and flurries or light/chance snow add a concern. Dense or freezing fog rules the hour out. Smoke, haze or dust mean air quality is not assessed unless another known factor already rules the hour out.'],
       ['Data quality', 'Forecasts or cached data older than ' + (CONFIG.staleForecastMs / 3600000) + ' hours make the verdict unknown because an expired red finding is not current evidence.'],
       ['Unknown', 'Temperature, wind or rain probability is missing and nothing known already rules the hour out. A known ' +
         'disqualifier always wins over a missing input, so gaps in the data can never upgrade an hour.']
