@@ -43,7 +43,7 @@
     walk: {
       tempGood:   [48, 74],   // degF
       tempOk:     [44, 80],
-      windGood:   15,         // mph sustained
+      windGood:   12,         // mph sustained; calibrated outdoors, not guessed
       windMax:    23,
       gustGood:   25,         // mph gusts; separate from sustained-wind limits
       gustMax:    35,
