@@ -5,9 +5,6 @@ Live: https://dmitryzotman.github.io/sunset-weather (GitHub Pages from main).
 
 ## Layout
 - index.html / app.js / styles.css: current page. No build step, no deps.
-- beta/: alternate layout. beta/app.js is a FULL COPY of app.js (config,
-  data layer, render), not a shared layer. It has drifted: windGood is 15
-  there vs 12 in app.js, and it still has the removed humidity/damp logic.
 - Tunable values live in CONFIG and LOCATIONS at the top of app.js.
 
 ## Rules
