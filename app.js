@@ -697,22 +697,48 @@
     return value;
   }
 
+  var otherTwilightOpen = false;
+  function twilightView(loc, ms, mobile) {
+    var today = twilightTimes(loc, ms);
+    var tomorrow = function () { return twilightTimes(loc, ms + 86400000); };
+    var rows = [{ events: today[0], row: 0, tomorrow: false }, { events: today[1], row: 1, tomorrow: false }];
+    if (!mobile || today[0][3] == null || ms <= today[0][3]) return rows;
+    var next = tomorrow();
+    if (today[1][3] != null && ms <= today[1][3]) {
+      return [rows[1], { events: next[0], row: 0, tomorrow: true }];
+    }
+    return [{ events: next[0], row: 0, tomorrow: true }, { events: next[1], row: 1, tomorrow: true }];
+  }
+
+  // Interpolate between the time markers, then follow the schematic Bezier arc.
+  function twilightProgress(events, ms) {
+    if (events.some(function (t) { return t == null; }) || ms < events[0] || ms > events[3]) return null;
+    for (var i = 0; i < 3; i++) {
+      if (ms <= events[i + 1]) return (i + (ms - events[i]) / (events[i + 1] - events[i])) / 3;
+    }
+    return 1;
+  }
+
   function addTwilight(card, loc) {
     if (loc.id !== BASELINE) return;
     var weather = el('div', 'home-weather');
     while (card.firstChild) weather.appendChild(card.firstChild);
     card.appendChild(weather);
     var panel = el('section', 'twilight');
-    panel.setAttribute('aria-label', 'Today’s twilight at Home, Pacific time');
-    panel.title = 'Calculated for today at Home (Pacific time). Gradients show twilight stages, not cloud cover or predicted brightness.';
-    var times = twilightTimes(loc, now);
+    panel.setAttribute('aria-label', 'Twilight at Home, Pacific time');
+    panel.title = 'Calculated at Home (Pacific time). Gradients show twilight stages, not cloud cover or predicted brightness.';
+    var mobile = !window.matchMedia('(min-width: 701px)').matches;
+    var periods = twilightView(loc, now, mobile);
     var names = [['First light', 'Nautical', 'Civil dawn', 'Sunrise'], ['Sunset', 'Civil dusk', 'Nautical', 'Night']];
     var fullNames = [['Astronomical dawn', 'Nautical dawn', 'Civil dawn', 'Sunrise'],
       ['Sunset', 'Civil dusk', 'Nautical dusk', 'Astronomical dusk']];
     var clock = new Intl.DateTimeFormat('en-US', { timeZone: SOLAR_ZONE, hour: 'numeric', minute: '2-digit', hour12: true });
-    times.forEach(function (events, row) {
+    periods.forEach(function (period, index) {
+      var events = period.events;
+      var row = period.row;
       var section = el('div', 'twilight-period');
-      section.appendChild(el('h4', null, row ? 'Evening · pm' : 'Morning · am'));
+      var heading = (period.tomorrow ? 'Tomorrow ' : '') + (row ? 'Evening · pm' : 'Morning · am');
+      section.appendChild(el('h4', null, heading));
       var gradient = 'twilight-' + loc.id + '-' + row;
       var curve = el('div', 'twilight-curve');
       var colors = row ? ['#ffe39a', '#ffb68c', '#ec8cc6', '#aa8ee8', '#748bf1'] :
@@ -727,6 +753,16 @@
         '" fill="none" stroke="url(#' + gradient + ')" stroke-width="6" stroke-linecap="round"/>' +
         ys.map(function (y, i) { return '<circle cx="' + (50 + i * 100) + '" cy="' + y +
           '" r="3.5" fill="#f8f4e9"/>'; }).join('') + '</svg>';
+      var progress = twilightProgress(events, now);
+      if (progress != null) {
+        var marker = el('span', 'twilight-now', 'Now');
+        var bend = progress * progress * (3 - 2 * progress);
+        marker.style.left = ((50 + 300 * progress) / 4) + '%';
+        marker.style.top = ((row ? 9 + 19 * bend : 28 - 19 * bend) / 36 * 100) + '%';
+        marker.setAttribute('role', 'img');
+        marker.setAttribute('aria-label', 'Now: ' + clock.format(new Date(now)) + ' Pacific time');
+        curve.appendChild(marker);
+      }
       section.appendChild(curve);
       var labels = el('div', 'twilight-labels');
       events.forEach(function (event, i) {
@@ -739,7 +775,14 @@
         labels.appendChild(label);
       });
       section.appendChild(labels);
-      panel.appendChild(section);
+      if (mobile && index === 1) {
+        var disclosure = el('details', 'twilight-other');
+        disclosure.open = otherTwilightOpen;
+        disclosure.appendChild(el('summary', null, (period.tomorrow ? 'Tomorrow ' : '') + (row ? 'evening' : 'morning')));
+        disclosure.appendChild(section);
+        disclosure.addEventListener('toggle', function () { otherTwilightOpen = disclosure.open; });
+        panel.appendChild(disclosure);
+      } else panel.appendChild(section);
     });
     card.appendChild(panel);
   }
@@ -1040,7 +1083,7 @@
   /* The key is reference material: open on a wide screen, folded away on a
      phone where it would otherwise sit between the header and the grid. */
   var wide = window.matchMedia('(min-width: 701px)');
-  function syncKey() { document.getElementById('key').open = wide.matches; }
+  function syncKey() { document.getElementById('key').open = wide.matches; renderCards(); }
   wide.addEventListener('change', syncKey);
   syncKey();
 
@@ -1048,7 +1091,7 @@
      detail rather than sending you to a second screen. */
   document.getElementById('cards').addEventListener('click', function (e) {
     var card = e.target.closest ? e.target.closest('.card') : null;
-    if (!card || e.target.closest('a')) return;
+    if (!card || e.target.closest('a, .twilight')) return;
     card.classList.toggle('open');
   });
 

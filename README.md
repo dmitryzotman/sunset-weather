@@ -123,8 +123,12 @@ dawn and dusk. Actual perceived light depends on weather and the horizon.
 The gradients and equally spaced markers illustrate stages, not a brightness
 forecast or a proportional time axis. They do not affect walking ratings.
 
-On wide desktops, the curves sit beside Home's weather. On smaller screens,
-they stack underneath and remain visible when the weather details are collapsed.
+On wide desktops, the curves sit beside Home's weather. A small Now pointer
+appears only during a displayed twilight interval, positioned between its time
+markers. On phones, curves are half as tall and only the current or next interval
+is shown, with a disclosure for the other upcoming interval. After evening twilight,
+the next morning is labeled Tomorrow. Twilight stays visible when weather details
+are collapsed; opening the other curve does not expand the weather card.
 
 ## Grid cells are not permanent
 

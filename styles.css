@@ -142,7 +142,12 @@ button.spinning { color: var(--muted); }
 .twilight { min-width: 0; margin-top: 16px; padding-top: 12px; border-top: 1px solid #567084; }
 .twilight-period + .twilight-period { margin-top: 13px; }
 .twilight h4 { margin: 0; color: #d0dce5; font-size: 12px; font-weight: 500; }
-.twilight-curve { height: 32px; margin-top: 3px; }
+.twilight-curve { position: relative; height: 32px; margin-top: 8px; }
+.twilight-now { position: absolute; transform: translate(-50%, calc(-100% - 7px)); padding: 0 2px; background: var(--home-bg); color: #fff; font-size: 10px; line-height: 1.1; pointer-events: none; }
+.twilight-now::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #fff; }
+.twilight-other { margin-top: 5px; }
+.twilight-other summary { color: #d0dce5; font-size: 11px; padding: 8px 0; cursor: pointer; }
+.twilight-other .twilight-period { margin-top: 3px; }
 .twilight-curve svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .twilight-labels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); text-align: center; gap: 2px; }
 .twilight-label strong { display: block; font-size: 14px; font-weight: 550; font-variant-numeric: tabular-nums; }
@@ -335,6 +340,8 @@ footer code {
   .home-weather { display: contents; }
   .card-home .twilight { grid-column: 1 / -1; margin-top: 10px; padding-top: 9px; }
   .card-home .twilight-period + .twilight-period { margin-top: 10px; }
+  .card-home .twilight-curve { height: 16px; margin-top: 10px; }
+  .card-home .twilight-label strong { font-size: 12px; }
   .card-home .card-head { padding-right: 0; }
   .home-label { display: none; }
   .card .sub { display: none; }
