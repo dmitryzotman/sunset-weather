@@ -642,6 +642,108 @@
     return score;
   }
 
+  // Solar events for Home's calendar date, independent of the viewer's timezone
+  // and NWS availability. NOAA/Meeus solar coordinates, iterated at each event.
+  // https://gml.noaa.gov/grad/solcalc/calcdetails.html
+  var SOLAR_ZONE = 'America/Los_Angeles';
+  var solarCache = {};
+  function solarPosition(ms) {
+    var r = Math.PI / 180;
+    var t = (ms / 86400000 + 2440587.5 - 2451545) / 36525;
+    var l = ((280.46646 + t * (36000.76983 + t * 0.0003032)) % 360) * r;
+    var m = (357.52911 + t * (35999.05029 - 0.0001537 * t)) * r;
+    var e = 0.016708634 - t * (0.000042037 + 0.0000001267 * t);
+    var c = Math.sin(m) * (1.914602 - t * (0.004817 + 0.000014 * t)) +
+      Math.sin(2 * m) * (0.019993 - 0.000101 * t) + Math.sin(3 * m) * 0.000289;
+    var omega = (125.04 - 1934.136 * t) * r;
+    var lambda = l + (c - 0.00569 - 0.00478 * Math.sin(omega)) * r;
+    var ob = (23 + (26 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60) / 60 +
+      0.00256 * Math.cos(omega)) * r;
+    var y = Math.pow(Math.tan(ob / 2), 2);
+    return {
+      decl: Math.asin(Math.sin(ob) * Math.sin(lambda)),
+      eq: 4 / r * (y * Math.sin(2 * l) - 2 * e * Math.sin(m) +
+        4 * e * y * Math.sin(m) * Math.cos(2 * l) -
+        0.5 * y * y * Math.sin(4 * l) - 1.25 * e * e * Math.sin(2 * m))
+    };
+  }
+
+  function solarEvent(day, loc, depression, evening) {
+    var r = Math.PI / 180;
+    var minutes = 720 - 4 * loc.lon;
+    for (var i = 0; i < 4; i++) {
+      var sun = solarPosition(day + minutes * 60000);
+      var cosHour = (Math.sin(-depression * r) - Math.sin(loc.lat * r) * Math.sin(sun.decl)) /
+        (Math.cos(loc.lat * r) * Math.cos(sun.decl));
+      if (cosHour < -1 || cosHour > 1) return null;
+      minutes = 720 - 4 * loc.lon - sun.eq + (evening ? 1 : -1) * 4 * Math.acos(cosHour) / r;
+    }
+    return Math.round((day + minutes * 60000) / 60000) * 60000;
+  }
+
+  function twilightTimes(loc, ms) {
+    var parts = new Intl.DateTimeFormat('en-US', { timeZone: SOLAR_ZONE,
+      year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms));
+    var date = {};
+    parts.forEach(function (p) { date[p.type] = p.value; });
+    var day = Date.UTC(+date.year, +date.month - 1, +date.day);
+    var key = day + ':' + loc.lat + ':' + loc.lon;
+    if (solarCache.key === key) return solarCache.value;
+    var value = [
+      [18, 12, 6, 0.833].map(function (d) { return solarEvent(day, loc, d, false); }),
+      [0.833, 6, 12, 18].map(function (d) { return solarEvent(day, loc, d, true); })
+    ];
+    solarCache = { key: key, value: value };
+    return value;
+  }
+
+  function addTwilight(card, loc) {
+    if (loc.id !== BASELINE) return;
+    var weather = el('div', 'home-weather');
+    while (card.firstChild) weather.appendChild(card.firstChild);
+    card.appendChild(weather);
+    var panel = el('section', 'twilight');
+    panel.setAttribute('aria-label', 'Today’s twilight at Home, Pacific time');
+    panel.title = 'Calculated for today at Home (Pacific time). Gradients show twilight stages, not cloud cover or predicted brightness.';
+    var times = twilightTimes(loc, now);
+    var names = [['First light', 'Nautical', 'Civil dawn', 'Sunrise'], ['Sunset', 'Civil dusk', 'Nautical', 'Night']];
+    var fullNames = [['Astronomical dawn', 'Nautical dawn', 'Civil dawn', 'Sunrise'],
+      ['Sunset', 'Civil dusk', 'Nautical dusk', 'Astronomical dusk']];
+    var clock = new Intl.DateTimeFormat('en-US', { timeZone: SOLAR_ZONE, hour: 'numeric', minute: '2-digit', hour12: true });
+    times.forEach(function (events, row) {
+      var section = el('div', 'twilight-period');
+      section.appendChild(el('h4', null, row ? 'Evening · pm' : 'Morning · am'));
+      var gradient = 'twilight-' + loc.id + '-' + row;
+      var curve = el('div', 'twilight-curve');
+      var colors = row ? ['#ffe39a', '#ffb68c', '#ec8cc6', '#aa8ee8', '#748bf1'] :
+        ['#748bf1', '#aa8ee8', '#ec8cc6', '#ffb68c', '#ffe39a'];
+      // The arc is schematic; labels are equally spaced for phone legibility.
+      var ys = row ? [9, 13, 23, 28] : [28, 23, 13, 9];
+      curve.innerHTML = '<svg viewBox="0 0 400 36" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
+        '<defs><linearGradient id="' + gradient + '">' + colors.map(function (color, i) {
+          return '<stop offset="' + (i * 25) + '%" stop-color="' + color + '"/>';
+        }).join('') + '</linearGradient></defs>' +
+        '<path d="' + (row ? 'M 50 9 C 150 9 250 28 350 28' : 'M 50 28 C 150 28 250 9 350 9') +
+        '" fill="none" stroke="url(#' + gradient + ')" stroke-width="6" stroke-linecap="round"/>' +
+        ys.map(function (y, i) { return '<circle cx="' + (50 + i * 100) + '" cy="' + y +
+          '" r="3.5" fill="#f8f4e9"/>'; }).join('') + '</svg>';
+      section.appendChild(curve);
+      var labels = el('div', 'twilight-labels');
+      events.forEach(function (event, i) {
+        var label = el('div', 'twilight-label');
+        var formatted = event == null ? 'Unavailable' : clock.format(new Date(event));
+        label.setAttribute('aria-label', fullNames[row][i] + ': ' + formatted + ' Pacific time');
+        label.title = fullNames[row][i] + (i === 0 && !row ? ': first faint sky glow' : i === 3 && row ? ': end of astronomical twilight' : '');
+        label.appendChild(el('strong', null, event == null ? '—' : formatted.replace(/\s*[AP]M$/, '')));
+        label.appendChild(el('span', null, names[row][i]));
+        labels.appendChild(label);
+      });
+      section.appendChild(labels);
+      panel.appendChild(section);
+    });
+    card.appendChild(panel);
+  }
+
   function renderCards() {
     var wrap = document.getElementById('cards');
     wrap.innerHTML = '';
@@ -669,6 +771,7 @@
         empty.appendChild(el('span', 'dash', '—'));
         empty.appendChild(el('p', null, loading ? 'Loading…' : (failures[loc.id] || 'Unavailable')));
         card.appendChild(empty);
+        addTwilight(card, loc);
         wrap.appendChild(card);
         return;
       }
@@ -719,6 +822,7 @@
       foot.title = 'NWS issued ' + dateLabel(Date.parse(data[loc.id].updated)) + ' at ' + clockLabel(Date.parse(data[loc.id].updated));
       foot.appendChild(link);
       card.appendChild(foot);
+      addTwilight(card, loc);
       wrap.appendChild(card);
     });
   }
