@@ -111,6 +111,21 @@ hourly forecasts run about a week ahead, so paging keeps going until the data
 does. Change `CONFIG.hoursAhead` and the columns, the page size and the button
 labels all follow.
 
+## Twilight at Home
+
+The Home card shows morning and evening twilight curves for today's date in
+America/Los_Angeles, even when viewed from another time zone. Times are calculated
+locally from Home's coordinates using the NOAA/Meeus solar equations, rounded to
+the nearest minute; they do not require a network request. Sunrise and sunset
+use a solar altitude of -0.833 degrees, and civil, nautical, and astronomical
+twilight use -6, -12, and -18 degrees. First light and Night mark astronomical
+dawn and dusk. Actual perceived light depends on weather and the horizon.
+The gradients and equally spaced markers illustrate stages, not a brightness
+forecast or a proportional time axis. They do not affect walking ratings.
+
+On wide desktops, the curves sit beside Home's weather. On smaller screens,
+they stack underneath and remain visible when the weather details are collapsed.
+
 ## Grid cells are not permanent
 
 NWS forecasts come from grid cells roughly 2.5 km across. You resolve a
